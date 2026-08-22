@@ -64,13 +64,13 @@ main() {
   fi
 
   log "Staging files..."
-  git add idea.md README.md HACKATHON_REFERENCE.md DEV_DEVICE_REDMi13.md phone2.md .gitignore scripts/push-to-github.sh
+  git add idea.md README.md HACKATHON_REFERENCE.md DEV_DEVICE_REDMi13.md phone2.md MODELS.md .gitignore scripts/push-to-github.sh
 
   if git diff --cached --quiet; then
     log "No changes to commit."
   else
     git commit -m "$(cat <<EOF
-Add Mneme docs including Redmi 13 5G dev device profile.
+Add Mneme docs and 2026 on-device model catalog (MODELS.md).
 
 Author: ${AUTHOR} (${GITHUB_USER})
 EOF

@@ -10,6 +10,7 @@ Offline personal memory assistant for the iQOO Hackathon City Battles.
 - **[HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md)** — iQOO 15 hardware, tracks, scoring, Office Kit  
 - **[DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md)** — Phone 1: Redmi 13 5G hardware + dev capabilities  
 - **[phone2.md](./phone2.md)** — Phone 2: Redmi Note 11 Pro+ 5G hardware + secondary test role  
+- **[MODELS.md](./MODELS.md)** — 2026 on-device model catalog (Qwen 3.5, Gemma 4, VLMs, embed, STT)  
 
 ## Status
 
