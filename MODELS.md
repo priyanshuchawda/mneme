@@ -103,6 +103,8 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 
 ### Download manifest (lock these HF / Ollama IDs)
 
+> **Full clickable links:** [Hugging Face links section](#-hugging-face-links--all-models-we-use) below.
+
 | Model | Hugging Face / source | Quant | Phone |
 |-------|----------------------|-------|-------|
 | Qwen3.5-2B-Instruct | `Qwen/Qwen3.5-2B-Instruct` → GGUF via bartowski/unsloth | `Q4_K_M` | Phone 1 |
@@ -117,7 +119,98 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 | Whisper base | `ggerganov/whisper.cpp` → `ggml-base-q5_1.bin` | Q5 | both |
 | Gemma 4 E2B mobile | `google/gemma-4-E2B-it-qat-mobile-transformers` | mobile QAT | iQOO prep |
 
-**Test on laptop before phone:**
+---
+
+## 🔗 Hugging Face links — all models we use
+
+**Author:** Priyanshu Chawda · **For:** Mneme v1 · **Quant for phone:** prefer **Q4_K_M** GGUF (llama.cpp) unless noted
+
+### Phone 1 — Redmi 13 5G (6 GB) — download these
+
+| Role | Model | Hugging Face link | Phone file (GGUF) |
+|------|--------|-------------------|-------------------|
+| **Main LLM** (extract + Q&A) | Qwen3.5-2B | [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) (official weights) | [TheStageAI/Qwen3.5-2B-GGUF](https://huggingface.co/TheStageAI/Qwen3.5-2B-GGUF) → `Qwen3.5-2B-M-TS-Q4_K_M.gguf` (~1.07 GB) |
+| **Embeddings** | EmbeddingGemma 300M | [google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) | LiteRT / ONNX bundle (see model card) |
+| **Voice STT** | Whisper base | [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) | `ggml-base-q5_1.bin` (~60 MB) |
+| **Intent (P1)** | Qwen3.5-0.8B | [Qwen/Qwen3.5-0.8B](https://huggingface.co/Qwen/Qwen3.5-0.8B) | [TheStageAI/Qwen3.5-0.8B-GGUF](https://huggingface.co/TheStageAI/Qwen3.5-0.8B-GGUF) (if available) or search HF |
+| **Fallback LLM** | Qwen2.5-1.5B LiteRT | [litert-community/Qwen2.5-1.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | `.task` / LiteRT INT8 |
+
+**Pulse OCR:** ML Kit — no HF download ([Android ML Kit docs](https://developers.google.com/ml-kit/vision/text-recognition))
+
+---
+
+### Phone 2 — Note 11 Pro+ 5G (8 GB) — download these
+
+| Role | Model | Hugging Face link | Phone file (GGUF) |
+|------|--------|-------------------|-------------------|
+| **Main LLM** | Qwen3.5-4B | [Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | [TheStageAI/Qwen3.5-4B-GGUF](https://huggingface.co/TheStageAI/Qwen3.5-4B-GGUF) → `Qwen3.5-4B-M-TS-Q4_K_M.gguf` (~2.39 GB) |
+| **Intent router** | Qwen3.5-0.8B | [Qwen/Qwen3.5-0.8B](https://huggingface.co/Qwen/Qwen3.5-0.8B) | [TheStageAI/Qwen3.5-0.8B-GGUF](https://huggingface.co/TheStageAI/Qwen3.5-0.8B-GGUF) |
+| **Embeddings** | Qwen3-Embedding-0.6B | [Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) | [OpenVINO/Qwen3-Embedding-0.6B-int8-ov](https://huggingface.co/OpenVINO/Qwen3-Embedding-0.6B-int8-ov) or ONNX |
+| **Reranker** | Qwen3-Reranker-0.6B | [Qwen/Qwen3-Reranker-0.6B](https://huggingface.co/Qwen/Qwen3-Reranker-0.6B) | ONNX / use with embed pipeline |
+| **Voice STT** | Whisper base | [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) | `ggml-base-q5_1.bin` |
+| **Pulse VLM (P1)** | MiniCPM-V 4.6 | [openbmb/MiniCPM-V-4.6](https://huggingface.co/openbmb/MiniCPM-V-4.6) | [openbmb/MiniCPM-V-4.6-gguf](https://huggingface.co/openbmb/MiniCPM-V-4.6-gguf) → `MiniCPM-V-4.6-Q4_K_M.gguf` + mmproj |
+| **Screen agent (P2)** | Qwen3-VL-2B | [Qwen/Qwen3-VL-2B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) | Search `Qwen3-VL-2B-Instruct-GGUF` on HF |
+
+**Shared with Phone 1:** Same Whisper repo; can also run [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) as lighter fallback.
+
+---
+
+### iQOO 15 — hackathon (event)
+
+| Role | Model | Hugging Face link |
+|------|--------|-------------------|
+| **Hero LLM** | Qwen3.5-9B | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) · GGUF: search `Qwen3.5-9B-GGUF` |
+| **Google / NPU story** | Gemma 4 E2B | [google/gemma-4-E2B](https://huggingface.co/google/gemma-4-E2B) |
+| **Mobile QAT bundle** | Gemma 4 E2B QAT | [google/gemma-4-E2B-it-qat-mobile-transformers](https://huggingface.co/google/gemma-4-E2B-it-qat-mobile-transformers) |
+| **Larger edge (optional)** | Gemma 4 E4B | [google/gemma-4-E4B](https://huggingface.co/google/gemma-4-E4B) |
+| **Embeddings** | EmbeddingGemma | [google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) |
+
+---
+
+### Fine-tuning base weights (LoRA on laptop → merge → GGUF)
+
+| Target | Base model HF | Fine-tune with |
+|--------|---------------|----------------|
+| Phone 1 LLM | [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) | Unsloth / TRL LoRA rank 16 |
+| Phone 2 LLM | [Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | Same dataset as 2B |
+| iQOO (optional) | [unsloth/gemma-4-E2B-it-bnb-4bit](https://huggingface.co/unsloth/gemma-4-E2B-it-bnb-4bit) | Unsloth → merge → `.litertlm` |
+
+---
+
+### Collections (browse all sizes)
+
+| Family | HF collection |
+|--------|----------------|
+| Qwen 3.5 all sizes | [huggingface.co/collections/Qwen/qwen35](https://huggingface.co/collections/Qwen/qwen35) |
+| Qwen3-VL | [huggingface.co/collections/Qwen/qwen3-vl](https://huggingface.co/collections/Qwen/qwen3-vl) |
+| Qwen3 Embedding | [Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) (+ 4B, 8B on same org) |
+| Gemma 4 | [huggingface.co/collections/google/gemma-4](https://huggingface.co/collections/google/gemma-4) |
+
+---
+
+### Quick download commands (laptop → push to phone)
+
+```bash
+# Install HF CLI once: pip install huggingface_hub
+
+# Phone 1 — main brain (GGUF)
+huggingface-cli download TheStageAI/Qwen3.5-2B-GGUF Qwen3.5-2B-M-TS-Q4_K_M.gguf --local-dir ./models/phone1
+
+# Phone 1 — Whisper
+huggingface-cli download ggerganov/whisper.cpp ggml-base-q5_1.bin --local-dir ./models/whisper
+
+# Phone 2 — main brain
+huggingface-cli download TheStageAI/Qwen3.5-4B-GGUF Qwen3.5-4B-M-TS-Q4_K_M.gguf --local-dir ./models/phone2
+
+# Phone 2 — MiniCPM-V GGUF (P1)
+huggingface-cli download openbmb/MiniCPM-V-4.6-gguf --local-dir ./models/phone2/minicpm
+
+# Push to phone
+adb -s 1431df87 push ./models/phone1/ /sdcard/Mneme/models/
+adb -s 3e68912fdff2 push ./models/phone2/ /sdcard/Mneme/models/
+```
+
+**Test on laptop first (Ollama):**
 ```bash
 ollama pull qwen3.5:2b    # Phone 1 brain
 ollama pull qwen3.5:4b    # Phone 2 brain

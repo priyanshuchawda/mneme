@@ -70,7 +70,7 @@ main() {
     log "No changes to commit."
   else
     git commit -m "$(cat <<EOF
-Add Mneme selected model stacks for Phone 1 and Phone 2.
+Add Hugging Face download links for all Mneme models.
 
 Author: ${AUTHOR} (${GITHUB_USER})
 EOF
