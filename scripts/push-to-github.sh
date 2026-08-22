@@ -64,7 +64,7 @@ main() {
   fi
 
   log "Staging files..."
-  git add idea.md README.md HACKATHON_REFERENCE.md DEV_DEVICE_REDMi13.md .gitignore scripts/push-to-github.sh
+  git add idea.md README.md HACKATHON_REFERENCE.md DEV_DEVICE_REDMi13.md phone2.md .gitignore scripts/push-to-github.sh
 
   if git diff --cached --quiet; then
     log "No changes to commit."
