@@ -64,13 +64,15 @@ main() {
   fi
 
   log "Staging files..."
-  git add idea.md README.md HACKATHON_REFERENCE.md DEV_DEVICE_REDMi13.md phone2.md MODELS.md .gitignore scripts/push-to-github.sh
+  git add idea.md README.md HACKATHON_REFERENCE.md DEV_DEVICE_REDMi13.md phone2.md MODELS.md PHONE1_TESTING.md .gitignore \
+    scripts/push-to-github.sh scripts/termux-setup-mneme.sh scripts/phone1-test-ubuntu.sh \
+    scripts/phone1-proot-test.sh scripts/laptop-mneme-phone.sh scripts/mneme-test scripts/download-phone1-models.sh
 
   if git diff --cached --quiet; then
     log "No changes to commit."
   else
     git commit -m "$(cat <<EOF
-Add Hugging Face download links for all Mneme models.
+Add Phone 1 testing docs, scripts, and Whisper verification status.
 
 Author: ${AUTHOR} (${GITHUB_USER})
 EOF
