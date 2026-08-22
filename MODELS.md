@@ -1,7 +1,7 @@
 # On-Device Model Catalog — Mneme (2026)
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
-**Updated:** 2026-08-22  
+**Updated:** 2026-08-22 (selected stacks locked for Phone 1 + Phone 2)  
 **Project:** Mneme — offline personal memory assistant (iQOO Hackathon 2026)  
 **Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO 15 loaner (event)
 
@@ -21,7 +21,132 @@ Voice → Whisper (batch STT) → LLM + RAG → answer + citation + tools (alarm
 
 Neither dev phone has Hexagon NPU — CPU/GPU inference now; **iQOO 15 Hexagon + LiteRT-QNN** at hackathon.
 
+> **Rule for both phones:** Load **one large model at a time** (LLM **or** VLM). Embeddings + Whisper can stay resident. Target **≤3.6 GB** model RAM on Phone 1, **≤5 GB** on Phone 2.
+
 ---
+
+## ✅ Selected stacks — USE THESE (Mneme v1)
+
+**Status:** Phone 1 (`1431df87`) = primary build target · Phone 2 (`3e68912fdff2`) = regression + bigger models  
+**Last locked:** 2026-08-22
+
+### Phone 1 — Redmi 13 5G (6 GB) — primary dev
+
+| # | Mneme job | **Use this model** | Fallback | Runtime | File / quant | On-disk | RAM (run) | Phase |
+|---|-----------|-------------------|----------|---------|--------------|---------|-----------|-------|
+| 1 | **Pulse → text** (screenshot) | **ML Kit Text Recognition** | — | Google ML Kit | bundled SDK | 0 | ~0 | **P0 now** |
+| 2 | **Pulse → structured note** (JSON) | **Qwen3.5-2B-Instruct** | Qwen2.5-1.5B-Instruct (LiteRT) | llama.cpp JNI | `Q4_K_M` GGUF | ~1.5 GB | ~2.2 GB | **P0 now** |
+| 3 | **Voice Q&A + citations** | **Qwen3.5-2B-Instruct** *(same file as #2)* | — | llama.cpp JNI | shared weights | — | shared | **P0 now** |
+| 4 | **Intent** (`REMEMBER` / `QUERY` / `ALARM`) | **Keyword + regex rules** | Qwen3.5-0.8B-Instruct | rules → llama.cpp | `Q4_K_M` | ~0.5 GB | ~0.8 GB | P0 rules / P1 model |
+| 5 | **RAG embeddings** | **EmbeddingGemma-300M** | Qwen3-Embedding-0.6B | LiteRT or ONNX | INT4 / Q4 | ~0.2 GB | ~0.3 GB | **P0 now** |
+| 6 | **RAG search** | **Cosine top-5** on embed vectors | — | SQLite + numpy | — | 0 | ~0 | **P0 now** |
+| 7 | **Voice input (STT)** | **Whisper base** | Whisper tiny | whisper.cpp JNI | `base-q5_1.gguf` | ~60 MB | ~0.1 GB | **P0 now** |
+| 8 | **Voice output (TTS)** | **Android TextToSpeech** | — | system API | — | 0 | 0 | **P0 now** |
+| 9 | **Notification capture** | **NotificationListenerService** | — | Android | — | 0 | 0 | **P0 now** |
+| 10 | **Notification filter** | **Keyword rules** (deadline, date, `@`) | TFLite micro-classifier | rules | train later | ~1 MB | ~0 | P0 / P2 |
+| 11 | **Clipboard / share capture** | **Android APIs** | — | Android | — | 0 | 0 | **P0 now** |
+| 12 | **Alarm / reminder tool** | **AlarmManager** | Calendar intent | Android | — | 0 | 0 | **P0 now** |
+| 13 | **Pulse vision** (screenshot without OCR) | *defer* | Qwen3.5-2B multimodal image | llama.cpp | `Q4_K_M` | included in #2 | swap with #2 | **P1** |
+| 14 | **Reranker** | *skip* — not enough RAM for 3 models | — | — | — | — | — | — |
+
+**Phone 1 totals (P0):** ~**1.8 GB** on disk · ~**2.6 GB** peak RAM (LLM + embed + Whisper, one at a time for LLM)
+
+**Phone 1 one-line stack:**
+```
+ML Kit → Qwen3.5-2B (extract + Q&A) + EmbeddingGemma + Whisper base + Android TTS/alarms
+```
+
+---
+
+### Phone 2 — Redmi Note 11 Pro+ 5G (8 GB) — secondary / stress test
+
+| # | Mneme job | **Use this model** | Fallback | Runtime | File / quant | On-disk | RAM (run) | Phase |
+|---|-----------|-------------------|----------|---------|--------------|---------|-----------|-------|
+| 1 | **Pulse → text** | **ML Kit Text Recognition** | — | ML Kit | bundled | 0 | ~0 | **P0 now** |
+| 2 | **Pulse → structured note** | **Qwen3.5-4B-Instruct** | Qwen3.5-2B-Instruct | llama.cpp JNI | `Q4_K_M` GGUF | ~2.5 GB | ~3.5 GB | **P0–P1** |
+| 3 | **Voice Q&A + citations** | **Qwen3.5-4B-Instruct** *(shared)* | Qwen3.5-2B | llama.cpp JNI | shared | — | shared | **P0–P1** |
+| 4 | **Intent routing** | **Qwen3.5-0.8B-Instruct** | rules | llama.cpp | `Q4_K_M` | ~0.5 GB | ~0.8 GB | P1 |
+| 5 | **RAG embeddings** | **Qwen3-Embedding-0.6B** | EmbeddingGemma-300M | ONNX / LiteRT | INT8 | ~0.5 GB | ~0.7 GB | **P0 now** |
+| 6 | **RAG rerank** | **Qwen3-Reranker-0.6B** | cosine only | ONNX | INT8 | ~0.5 GB | ~0.7 GB | **P1** |
+| 7 | **Voice input (STT)** | **Whisper base** | Whisper small | whisper.cpp | `base-q5_1.gguf` | ~60 MB | ~0.1 GB | **P0 now** |
+| 8 | **Voice output (TTS)** | **Android TextToSpeech** | — | system | — | 0 | 0 | **P0 now** |
+| 9 | **Capture + tools** | Same as Phone 1 | — | Android | — | 0 | 0 | **P0 now** |
+| 10 | **Pulse vision (full VLM)** | **MiniCPM-V 4.6-Instruct** | Qwen3.5-4B MM | llama.cpp + mmproj | `Q4_K_M` + f16 | ~1.6 GB | ~2.5 GB | **P1** |
+| 11 | **Screen agent experiments** | **Qwen3-VL-2B-Instruct** | MiniCPM-V 4.6 | llama.cpp | `Q4_K_M` | ~1.4 GB | ~2 GB | **P2** |
+| 12 | **Google stack trial** | **Gemma 4 E2B-it QAT mobile** | — | LiteRT | mobile QAT | ~1.5 GB | ~2.5 GB | P2 (iQOO prep) |
+
+**Phone 2 totals (P0–P1):** ~**3.5–4 GB** on disk · ~**4.5 GB** peak RAM (4B LLM + embed; unload LLM before VLM)
+
+**Phone 2 one-line stack:**
+```
+ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whisper base
+```
+
+---
+
+### Side-by-side — what we use per phone
+
+| Mneme job | Phone 1 (6 GB) | Phone 2 (8 GB) |
+|-----------|----------------|----------------|
+| Pulse OCR | ML Kit | ML Kit |
+| Note extract + Q&A LLM | **Qwen3.5-2B** | **Qwen3.5-4B** |
+| Embeddings | **EmbeddingGemma-300M** | **Qwen3-Embedding-0.6B** |
+| Reranker | skip | **Qwen3-Reranker-0.6B** |
+| Voice STT | **Whisper base Q5** | **Whisper base Q5** |
+| Voice TTS | Android TTS | Android TTS |
+| Pulse VLM | P1: share Qwen3.5-2B | P1: **MiniCPM-V 4.6** |
+| Intent | rules → P1: Qwen3.5-0.8B | **Qwen3.5-0.8B** |
+| Runtime | llama.cpp + LiteRT embed | llama.cpp + ONNX embed |
+| ADB serial | `1431df87` | `3e68912fdff2` |
+
+---
+
+### Download manifest (lock these HF / Ollama IDs)
+
+| Model | Hugging Face / source | Quant | Phone |
+|-------|----------------------|-------|-------|
+| Qwen3.5-2B-Instruct | `Qwen/Qwen3.5-2B-Instruct` → GGUF via bartowski/unsloth | `Q4_K_M` | Phone 1 |
+| Qwen3.5-4B-Instruct | `Qwen/Qwen3.5-4B-Instruct` → GGUF | `Q4_K_M` | Phone 2 |
+| Qwen3.5-0.8B-Instruct | `Qwen/Qwen3.5-0.8B-Instruct` → GGUF | `Q4_K_M` | Phone 2 / P1 Phone 1 |
+| Qwen2.5-1.5B fallback | `litert-community/Qwen2.5-1.5B-Instruct` | dynamic INT8 | Phone 1 fallback |
+| EmbeddingGemma | `google/embeddinggemma-300m` | Q4 / LiteRT | Phone 1 |
+| Qwen3-Embed-0.6B | `Qwen/Qwen3-Embedding-0.6B` | ONNX INT8 | Phone 2 |
+| Qwen3-Reranker-0.6B | `Qwen/Qwen3-Reranker-0.6B` | ONNX INT8 | Phone 2 |
+| MiniCPM-V 4.6 | `openbmb/MiniCPM-V-4.6` → GGUF + mmproj | `Q4_K_M` | Phone 2 P1 |
+| Qwen3-VL-2B | `Qwen/Qwen3-VL-2B-Instruct` → GGUF | `Q4_K_M` | Phone 2 P2 |
+| Whisper base | `ggerganov/whisper.cpp` → `ggml-base-q5_1.bin` | Q5 | both |
+| Gemma 4 E2B mobile | `google/gemma-4-E2B-it-qat-mobile-transformers` | mobile QAT | iQOO prep |
+
+**Test on laptop before phone:**
+```bash
+ollama pull qwen3.5:2b    # Phone 1 brain
+ollama pull qwen3.5:4b    # Phone 2 brain
+ollama pull embeddinggemma
+```
+
+---
+
+### Build phases (both phones)
+
+| Phase | What ships | Phone 1 | Phone 2 |
+|-------|------------|---------|---------|
+| **P0** | Pulse (ML Kit) + SQLite notes + notifications + Whisper + rules intent + embed search + alarm | ✅ all | ✅ all |
+| **P1** | Qwen3.5 LLM Q&A with citations + JSON extract; optional VLM Pulse | 2B | 4B + MiniCPM-V 4.6 |
+| **P2** | Reranker, Qwen3-VL screen agent, fine-tuned intents | 0.8B intent | full stack |
+| **Event** | iQOO: Qwen3.5-9B or Gemma 4 E4B on Hexagon | — | — |
+
+---
+
+### Memory load order (avoid OOM)
+
+1. Start app → load **EmbeddingGemma** or **Qwen3-Embed** (small, keep resident)
+2. User taps Pulse → run **ML Kit** (no model load)
+3. Need AI extract → load **Qwen3.5-2B/4B** → run → **keep warm** for Q&A session
+4. User speaks → **Whisper base** (can run while LLM loaded if total < budget; else unload LLM briefly)
+5. VLM Pulse (P1) → **unload LLM** → load VLM → extract → unload VLM → reload LLM
+
+---
+
 
 ## Phone fit summary
 
@@ -258,33 +383,9 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 
 ## 8. Recommended stacks (Mneme v1)
 
-### Phone 1 — Redmi 13 5G (6 GB) — primary dev
+> **Canonical stacks:** see **[Selected stacks — USE THESE](#-selected-stacks--use-these-mneme-v1)** at the top of this doc.
 
-```
-Pulse:     ML Kit OCR  OR  Qwen3.5-2B (multimodal)
-Extract:   Qwen3.5-2B → JSON {title, date, entities, source}
-Embed:     EmbeddingGemma-300M (256-dim)  OR  Qwen3-Embedding-0.6B
-Q&A LLM:   Qwen3.5-2B (same weights as extract)
-Voice:     Whisper base Q5 (batch STT)
-Alt fast:  LFM2.5-1.2B-Thinking (intent router only)
-Runtime:   llama.cpp JNI  OR  LiteRT (Google path)
-```
-
-**Total model footprint:** ~2–2.5 GB
-
-### Phone 2 — Note 11 Pro+ 5G (8 GB) — secondary / stress test
-
-```
-Pulse:     Qwen3.5-4B  OR  MiniCPM-V 4.6  OR  Qwen3-VL-2B
-Extract:   Qwen3.5-4B
-Embed:     Qwen3-Embedding-0.6B + Qwen3-Reranker-0.6B
-Q&A:       Qwen3.5-4B  OR  Gemma 4 E4B (QAT)
-Voice:     Whisper base/small Q5
-```
-
-**Total model footprint:** ~3–4 GB
-
-### iQOO 15 — hackathon demo
+### iQOO 15 — hackathon demo (event only)
 
 ```
 Hero LLM:   Qwen3.5-9B  OR  Gemma 4 E4B on Hexagon (LiteRT-QNN)
@@ -300,7 +401,7 @@ Story:      Multi-model NPU pipeline, airplane mode, citations
 
 | Priority | Model | Task | Method |
 |----------|--------|------|--------|
-| P0 | **Qwen3.5-2B** | Intents: `REMEMBER`, `QUERY`, `SET_ALARM`; JSON note schema | LoRA on laptop → GGUF |
+| P0 | **Qwen3.5-2B** (Phone 1) / **Qwen3.5-4B** (Phone 2) | Intents + JSON note schema | LoRA → GGUF |
 | P1 | **EmbeddingGemma** or **Qwen3-Embed-0.6B** | Domain notes (courses, apps, deadlines) | Contrastive fine-tune |
 | P2 | **GLM-OCR** or **Qwen3.5-2B** | Pulse: screenshot → structured fields | LoRA on screenshot pairs |
 | P3 | TFLite classifier | Notification junk vs important filter | Train on laptop, deploy tiny |
@@ -364,16 +465,13 @@ ollama pull embeddinggemma
 
 | Question | Answer |
 |----------|--------|
-| Best all-in-one for Phone 1? | **Qwen3.5-2B** |
-| Best all-in-one for Phone 2? | **Qwen3.5-4B** |
-| Best Google / iQOO narrative? | **Gemma 4 E2B/E4B** + **EmbeddingGemma** |
-| Best tiny VLM with Android demo? | **MiniCPM-V 4.6** |
-| Best screen/GUI agent VLM? | **Qwen3-VL-2B** |
-| Best embed model? | **EmbeddingGemma-300M** or **Qwen3-Embedding-0.6B** |
-| Coolest under 1 GB? | **LFM2.5-1.2B-Thinking** |
-| Best OCR-only? | **GLM-OCR** (0.9B) |
-| Best Pulse MVP (no VLM)? | **ML Kit OCR** + **Qwen3.5-2B** extract |
+| **Phone 1 stack (locked)?** | ML Kit + **Qwen3.5-2B** + **EmbeddingGemma** + **Whisper base** |
+| **Phone 2 stack (locked)?** | ML Kit + **Qwen3.5-4B** + **Qwen3-Embed-0.6B** + **Qwen3-Reranker** + Whisper |
+| Best Google / iQOO narrative? | **Gemma 4 E2B/E4B** + **EmbeddingGemma** on Hexagon |
+| Phone 2 VLM (P1)? | **MiniCPM-V 4.6** |
+| Phone 2 screen agent (P2)? | **Qwen3-VL-2B** |
 | Hackathon hero model? | **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
+| Full catalog below? | Sections 1–7, 9–13 |
 
 ---
 
