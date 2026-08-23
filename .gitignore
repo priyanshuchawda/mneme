@@ -31,3 +31,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Vendored native clones (build from Git; do not commit)
+tools/
+test-assets/*.wav
+android/**/local.properties
+*.so
