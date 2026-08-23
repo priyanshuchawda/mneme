@@ -65,7 +65,7 @@ Do **not** use faster-whisper on device — it's for GPU servers, not Android AP
 ## Full P0 stack on Phone 1
 
 ```
-ML Kit (OCR) → Qwen3.5-2B Q4_K_M (llama.cpp) → EmbeddingGemma (TFLite)
+ML Kit (OCR) → Qwen3.5-2B Q4_K_M (llama.cpp) → Qwen3-Embedding-0.6B (GGUF)
              → Whisper base Q5 (whisper.cpp) → Android TTS
 ```
 
@@ -74,7 +74,7 @@ ML Kit (OCR) → Qwen3.5-2B Q4_K_M (llama.cpp) → EmbeddingGemma (TFLite)
 | 1 | Pulse OCR | ML Kit (bundled) | Android SDK |
 | 2 | LLM | `Qwen3.5-2B-M-TS-Q4_K_M.gguf` (1 GB) | llama.cpp JNI |
 | 3 | STT | `ggml-base-q5_1.bin` (57 MB) | whisper.cpp JNI |
-| 4 | Embeddings | `embeddinggemma-300M_seq512_mixed-precision.tflite` (171 MB) | LiteRT/TFLite |
+| 4 | Embeddings | `Qwen3-Embedding-0.6B-Q8_0.gguf` | llama.cpp / ONNX |
 | 5 | TTS | System Android TTS | — |
 
 ---
@@ -139,7 +139,7 @@ Or use helper: `./scripts/laptop-mneme-phone.sh setup|test|log|ssh`
 |-----------|-----------|
 | STT | [whisper.android](https://github.com/ggerganov/whisper.cpp/tree/master/examples/whisper.android) + `ggml-base-q5_1.bin` |
 | LLM | llama.cpp JNI + Qwen3.5-2B GGUF |
-| Embeddings | LiteRT EmbeddingGemma TFLite |
+| Embeddings | Qwen3-Embedding-0.6B GGUF |
 | iQOO demo | Gemma 4 + LiteRT-LM |
 
 ---

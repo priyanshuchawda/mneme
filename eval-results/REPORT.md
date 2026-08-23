@@ -13,7 +13,7 @@ This doc is the **source of truth** for what we actually measured after fixing g
 
 | Rank | Stack | Best for | Why |
 |------|--------|----------|-----|
-| **1 (ship now)** | **ML Kit + Qwen3.5-2B** + Whisper base + HashEmbed/EmbeddingGemma | **Redmi 13 5G (6 GB)** | Fits RAM; Pulse JSON OK with no-think; Ask OK with closed-think / extractive fallback |
+| **1 (ship now)** | **ML Kit + Qwen3.5-2B** + Whisper base + **Qwen3-Embedding-0.6B** (HashEmbed interim) | **Redmi 13 5G (6 GB)** | Fits RAM with care; Pulse JSON OK with no-think; Ask OK with closed-think / extractive fallback |
 | **1b (best quality we proved)** | **ML Kit + Qwen3.5-4B** + Whisper + embeds | **Fedora A/B · iQOO 15 · 8 GB+ phones** | Same `qwen35` family as 2B; **best Ask answers** in this suite after CLI fix |
 | Avoid as daily | Qwen3-4B-Instruct-2507 / Qwen2.5-3B on *this* host | — | Loaded but **garbage decode** — not a fair quality score |
 | Defer | Qwen3-VL | Vision Pulse | Needs **mmproj + mtmd**; OCR→text LLM is enough for v1 |
@@ -23,7 +23,7 @@ This doc is the **source of truth** for what we actually measured after fixing g
 ```text
 Redmi (daily):     ML Kit → Qwen3.5-2B (no-think / closed <think>) → cite notes
 iQOO / quality:    same pipeline, swap LLM → Qwen3.5-4B Q4_K_M
-Always:            Whisper base · EmbeddingGemma (wire) · extractive Ask fallback
+Always:            Whisper base · Qwen3-Embedding-0.6B (wire) · extractive Ask fallback
 Never:             default thinking with tiny -n (looks “blank”)
 ```
 
@@ -133,7 +133,7 @@ Input OCR: `Mams301 Yesterday plssubmitch-11 by 25108, and viva nextweek monday 
 | Component | Result | Keep? |
 |-----------|--------|-------|
 | Whisper base (JFK) | Classic line, ~3.5s laptop CPU | **Yes** |
-| HashEmbedder | Ranks small corpora correctly | Interim until EmbeddingGemma |
+| HashEmbedder | Ranks small corpora correctly | Interim until Qwen3-Embedding-0.6B |
 | Extractive Ask (“show the note”) | Always correct when retrieve hits | **Yes — fallback** |
 | Laptop Tesseract OCR | Mangled UI fixtures | **No** — phone ML Kit only |
 
@@ -161,7 +161,7 @@ Details: [GENERATION_FIX.md](./GENERATION_FIX.md)
 Pulse:  ML Kit OCR → Qwen3.5-2B JSON extract (no-think / closed think)
 Ask:    retrieve → Qwen3.5-2B short cite → else extractive note text
 Voice:  Whisper base → same Ask path
-Embed:  HashEmbed now → EmbeddingGemma when wired
+Embed:  HashEmbed now → Qwen3-Embedding-0.6B when wired
 ```
 
 ### iQOO 15 / Fedora quality target

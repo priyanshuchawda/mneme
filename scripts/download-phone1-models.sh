@@ -38,7 +38,7 @@ main() {
   cd "${ROOT}"
 
   log "Target: ${MODELS}"
-  log "Phone 1 P0 — Qwen3.5-2B + EmbeddingGemma + Whisper (+ LiteRT fallback LLM)"
+  log "Phone 1 P0 — Qwen3.5-2B + Qwen3-Embedding-0.6B + Whisper"
 
   # Main LLM — llama.cpp JNI on phone
   download TheStageAI/Qwen3.5-2B-GGUF "${MODELS}/llm" \
@@ -48,18 +48,18 @@ main() {
   download ggerganov/whisper.cpp "${MODELS}/whisper" \
     ggml-base-q5_1.bin
 
-  # RAG embeddings — Android LiteRT/TFLite
-  download litert-community/embeddinggemma-300m "${MODELS}/embed/litert" \
-    embeddinggemma-300M_seq512_mixed-precision.tflite \
-    sentencepiece.model
+  # RAG embeddings — default for Phone 1 + 2
+  download Qwen/Qwen3-Embedding-0.6B-GGUF "${MODELS}/embed/qwen3" \
+    Qwen3-Embedding-0.6B-Q8_0.gguf
 
-  # RAG embeddings — GGUF for laptop / llama.cpp dev smoke tests
-  download ggml-org/embeddinggemma-300M-GGUF "${MODELS}/embed/gguf" \
-    embeddinggemma-300M-Q8_0.gguf
-
-  # Fallback LLM if Qwen3.5-2B too slow on device
-  download litert-community/Qwen2.5-1.5B-Instruct "${MODELS}/fallback" \
-    Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task
+  # Optional fallback embedder (smaller RAM) — skip if disk tight
+  if [[ "${DOWNLOAD_EMBEDDINGGEMMA:-0}" == "1" ]]; then
+    download litert-community/embeddinggemma-300m "${MODELS}/embed/litert" \
+      embeddinggemma-300M_seq512_mixed-precision.tflite \
+      sentencepiece.model
+  else
+    log "Skip EmbeddingGemma (set DOWNLOAD_EMBEDDINGGEMMA=1 to fetch fallback)"
+  fi
 
   log "Done. Layout:"
   find "${MODELS}" -type f -printf '  %s bytes  %p\n' | sort -k3
