@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.mneme.app.ai.LlmBridge
+import com.mneme.app.ai.NoteExtractor
 import com.mneme.app.data.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -23,12 +25,12 @@ data class PulseResult(
 )
 
 /**
- * Pulse: screenshot bytes → OCR → importance filter → Room note → delete pixels.
- * LLM structuring lands in a follow-up PR (#3 remaining extract step).
+ * Pulse: screenshot → OCR → optional Qwen JSON extract → Room note → recycle pixels.
  */
 class PulsePipeline(
     private val context: Context,
     private val notes: NoteRepository,
+    private val llm: LlmBridge? = null,
 ) {
     private val mutex = Mutex()
     private var lastPulseAt = 0L
@@ -46,12 +48,24 @@ class PulsePipeline(
                 if (!shouldSave(text)) {
                     return PulseResult(null, "Nothing important on screen", skippedDuplicate = false)
                 }
-                val title = text.lineSequence().firstOrNull { it.isNotBlank() }?.take(80) ?: "Screen note"
-                val id = notes.saveIfNew(title = title, body = text, source = sourceLabel)
+
+                val extracted = if (llm != null) {
+                    NoteExtractor.extract(llm, text)
+                } else {
+                    NoteExtractor.fallback(text)
+                }
+
+                val id = notes.saveIfNew(
+                    title = extracted.title,
+                    body = extracted.body,
+                    source = sourceLabel,
+                    dueAt = extracted.dueAt,
+                )
                 if (id == null) {
                     PulseResult(null, "Already saved recently", skippedDuplicate = true)
                 } else {
-                    PulseResult(id, "Saved: $title", skippedDuplicate = false)
+                    val dueHint = if (extracted.dueAt != null) " · due set" else ""
+                    PulseResult(id, "Saved: ${extracted.title}$dueHint", skippedDuplicate = false)
                 }
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()

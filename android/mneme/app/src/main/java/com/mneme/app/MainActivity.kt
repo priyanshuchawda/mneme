@@ -12,6 +12,8 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.mneme.app.ai.LlmBridge
+import com.mneme.app.ai.MemoryAsk
 import com.mneme.app.data.MnemeDatabase
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.pulse.ProjectionService
@@ -25,11 +27,13 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     private val notes by lazy { NoteRepository(MnemeDatabase.get(this).notes()) }
-    private val pulse by lazy { PulsePipeline(this, notes) }
+    private val llm by lazy { LlmBridge(this) }
+    private val pulse by lazy { PulsePipeline(this, notes, llm) }
+    private val asker by lazy { MemoryAsk(notes, llm) }
     private val capture by lazy { ScreenCapture(this) }
 
     private val viewModel: MnemeViewModel by viewModels {
-        MnemeViewModel.factory(notes, pulse)
+        MnemeViewModel.factory(notes, pulse, asker, llm)
     }
 
     private val projectionLauncher =

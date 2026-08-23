@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [NoteEntity::class], version = 1, exportSchema = false)
+@Database(entities = [NoteEntity::class], version = 2, exportSchema = false)
 abstract class MnemeDatabase : RoomDatabase() {
     abstract fun notes(): NoteDao
 
@@ -18,7 +18,10 @@ abstract class MnemeDatabase : RoomDatabase() {
                     context.applicationContext,
                     MnemeDatabase::class.java,
                     "mneme.db",
-                ).build().also { instance = it }
+                )
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
+                    .also { instance = it }
             }
     }
 }
