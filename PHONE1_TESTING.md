@@ -14,7 +14,7 @@ Related: [MODELS.md](./MODELS.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi1
 |-----------|--------|-------|
 | **Whisper STT** | ✅ **WORKING** | JFK sample transcribed correctly in **~6.4s** (11s audio) |
 | **Qwen3.5-2B LLM** | 🔄 **Building** | llama.cpp compiling in Ubuntu (first run ~15–25 min) |
-| **EmbeddingGemma TFLite** | ⏳ **Not tested yet** | File on device (171 MB); needs `pip install tensorflow` in Ubuntu or Kotlin app |
+| **Qwen3-Embedding-0.6B** | ⏳ **Download next** | Default RAG embed (GGUF Q8); HashEmbed interim in app |
 | **LiteRT fallback .task** | ⏳ **File only** | On `/sdcard/Mneme`; runtime needs LiteRT-LM in app |
 | **Models on device** | ✅ | `~/mneme-test/` — 1 GB LLM + 57 MB Whisper + 171 MB embed |
 
@@ -151,6 +151,7 @@ Or use helper: `./scripts/laptop-mneme-phone.sh setup|test|log|ssh`
 - [x] whisper.cpp built in Ubuntu on phone
 - [x] Whisper **base-q5_1** transcribes correctly
 - [ ] llama.cpp build complete → Qwen3.5-2B inference test
-- [ ] EmbeddingGemma TFLite load test
+- [ ] Download + load Qwen3-Embedding-0.6B Q8 GGUF
+- [ ] Wire embed into NoteRepository (replace HashEmbedder)
 - [ ] Termux: Allow all files (for `/sdcard/Mneme` sync)
 - [ ] Start Kotlin Mneme app scaffold
