@@ -16,16 +16,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -61,15 +67,33 @@ fun MnemeHomeScreen(
     Scaffold(
         containerColor = Color.Transparent,
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onPulse,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.RadioButtonChecked,
-                    contentDescription = "Pulse",
+            if (ui.tab == MnemeTab.Memory) {
+                FloatingActionButton(
+                    onClick = onPulse,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(18.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RadioButtonChecked,
+                        contentDescription = "Pulse",
+                    )
+                }
+            }
+        },
+        bottomBar = {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)) {
+                NavigationBarItem(
+                    selected = ui.tab == MnemeTab.Memory,
+                    onClick = { viewModel.setTab(MnemeTab.Memory) },
+                    icon = { Icon(Icons.Outlined.AutoStories, contentDescription = null) },
+                    label = { Text("Memory") },
+                )
+                NavigationBarItem(
+                    selected = ui.tab == MnemeTab.Ask,
+                    onClick = { viewModel.setTab(MnemeTab.Ask) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                    label = { Text("Ask") },
                 )
             }
         },
@@ -89,7 +113,10 @@ fun MnemeHomeScreen(
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                text = "Your private memory stays on this phone.",
+                text = when (ui.tab) {
+                    MnemeTab.Memory -> "Your private memory stays on this phone."
+                    MnemeTab.Ask -> "Ask only from what you saved."
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -100,41 +127,146 @@ fun MnemeHomeScreen(
                 color = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.height(16.dp))
-            TextField(
-                value = ui.searchQuery,
-                onValueChange = viewModel::setSearch,
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                placeholder = { Text(text = "Search memory") },
-                leadingIcon = {
-                    Icon(imageVector = Icons.Default.Search, contentDescription = null)
-                },
-                shape = RoundedCornerShape(16.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
 
-            if (shown.isEmpty()) {
-                EmptyMemory(modifier = Modifier.weight(1f))
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = 96.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    items(shown, key = { it.id }) { note ->
-                        NoteRow(note = note, onDelete = { viewModel.deleteNote(note.id) })
-                    }
-                }
+            when (ui.tab) {
+                MnemeTab.Memory -> MemoryPane(
+                    shown = shown,
+                    query = ui.searchQuery,
+                    onQuery = viewModel::setSearch,
+                    onDelete = viewModel::deleteNote,
+                )
+                MnemeTab.Ask -> AskPane(
+                    query = ui.askQuery,
+                    busy = ui.askBusy,
+                    answer = ui.askAnswer,
+                    citations = ui.askCitations,
+                    onQuery = viewModel::setAskQuery,
+                    onAsk = viewModel::submitAsk,
+                )
             }
         }
     }
 }
+
+@Composable
+private fun MemoryPane(
+    shown: List<NoteEntity>,
+    query: String,
+    onQuery: (String) -> Unit,
+    onDelete: (Long) -> Unit,
+) {
+    TextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        placeholder = { Text(text = "Search memory") },
+        leadingIcon = {
+            Icon(imageVector = Icons.Default.Search, contentDescription = null)
+        },
+        shape = RoundedCornerShape(16.dp),
+        colors = fieldColors(),
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+
+    if (shown.isEmpty()) {
+        EmptyMemory(modifier = Modifier.fillMaxSize())
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(shown, key = { it.id }) { note ->
+                NoteRow(note = note, onDelete = { onDelete(note.id) }, showDelete = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AskPane(
+    query: String,
+    busy: Boolean,
+    answer: String?,
+    citations: List<NoteEntity>,
+    onQuery: (String) -> Unit,
+    onAsk: () -> Unit,
+) {
+    TextField(
+        value = query,
+        onValueChange = onQuery,
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        enabled = !busy,
+        placeholder = { Text(text = "When is chapter 11 due?") },
+        shape = RoundedCornerShape(16.dp),
+        colors = fieldColors(),
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    TextButton(
+        onClick = onAsk,
+        enabled = !busy && query.isNotBlank(),
+    ) {
+        Text(if (busy) "Thinking on-device…" else "Ask memory")
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+
+    if (busy) {
+        Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (!answer.isNullOrBlank()) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                            RoundedCornerShape(18.dp),
+                        )
+                        .padding(16.dp),
+                ) {
+                    Text(
+                        text = "Answer",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = answer, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+        if (citations.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Cited notes",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+            items(citations, key = { "c-${it.id}" }) { note ->
+                NoteRow(note = note, showDelete = false)
+            }
+        }
+    }
+}
+
+@Composable
+private fun fieldColors() = TextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+    disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+)
 
 @Composable
 private fun EmptyMemory(modifier: Modifier = Modifier) {
@@ -152,7 +284,11 @@ private fun EmptyMemory(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun NoteRow(note: NoteEntity, onDelete: () -> Unit) {
+private fun NoteRow(
+    note: NoteEntity,
+    showDelete: Boolean = false,
+    onDelete: () -> Unit = {},
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -179,8 +315,10 @@ private fun NoteRow(note: NoteEntity, onDelete: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onDelete) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete note")
+            if (showDelete) {
+                IconButton(onClick = onDelete) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete note")
+                }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))

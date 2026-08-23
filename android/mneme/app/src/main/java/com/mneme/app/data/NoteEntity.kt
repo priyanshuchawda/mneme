@@ -19,4 +19,6 @@ data class NoteEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val dueAt: Long? = null,
     val contentHash: String,
+    /** L2-normalized float32 little-endian blob from HashEmbedder (or future EmbeddingGemma). */
+    val embedding: ByteArray? = null,
 )
