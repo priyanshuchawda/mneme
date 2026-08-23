@@ -54,6 +54,7 @@ Issues: https://github.com/priyanshuchawda/mneme-iqoo-hackathon/issues
 
 - [idea.md](./idea.md) — product spec  
 - [MODELS.md](./MODELS.md) — model catalog  
+- [eval-results/REPORT.md](./eval-results/REPORT.md) — Fedora eval: each model’s outputs + best stack  
 - [PHONE1_TESTING.md](./PHONE1_TESTING.md) — Phone 1 lab notes  
 - [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md)
 

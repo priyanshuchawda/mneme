@@ -1,11 +1,27 @@
 # On-Device Model Catalog — Mneme (2026)
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
-**Updated:** 2026-08-22 (selected stacks locked for Phone 1 + Phone 2)  
+**Updated:** 2026-08-23 (Fedora eval fixed — Qwen3.5-4B Ask proven)  
 **Project:** Mneme — offline personal memory assistant (iQOO Hackathon 2026)  
 **Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO 15 loaner (event)
 
-Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md)
+Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md) · **[eval-results/REPORT.md](./eval-results/REPORT.md)** (measured outputs)
+
+---
+
+## Fedora eval (2026-08-23) — what actually scored best
+
+Full tables + raw answers: **[eval-results/REPORT.md](./eval-results/REPORT.md)** · generation fix notes: [GENERATION_FIX.md](./eval-results/GENERATION_FIX.md)
+
+| Model | Ask (RAG) | Pulse JSON | Ship where |
+|-------|-----------|------------|------------|
+| **Qwen3.5-4B** Q4 (`qwen35`, unsloth) | **Best** — Uber/Priya/Netflix cited correctly; refuses missing | OK structure; dirty OCR still pollutes body | **iQOO / 8 GB+ / Fedora A/B** |
+| **Qwen3.5-2B** Q4 (phone GGUF) | Good with no-think; can over-refuse on multi-note prompts | Good on clean OCR + today date | **Redmi 6 GB daily** |
+| Qwen3-4B-Instruct / Qwen2.5-3B | Garbage on this llama.cpp host | — | Do not use here |
+| Whisper base | — | — | Keep (STT excellent) |
+| Qwen3-VL | Not scored (needs mmproj + mtmd) | Prefer ML Kit → text LLM | Defer |
+
+**Working Fedora CLI:** `-no-cnv` + closed empty `<think></think>` — see `scripts/eval-fedora-text-models.sh`. Without that, answers look blank.
 
 ---
 
@@ -159,7 +175,8 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 
 | Role | Model | Hugging Face link |
 |------|--------|-------------------|
-| **Hero LLM** | Qwen3.5-9B | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) · GGUF: search `Qwen3.5-9B-GGUF` |
+| **Proven quality LLM (Fedora)** | **Qwen3.5-4B** | [Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) · GGUF: [unsloth/Qwen3.5-4B-GGUF](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF) → `Qwen3.5-4B-Q4_K_M.gguf` (local: `models/eval/`) |
+| **Hero stretch** | Qwen3.5-9B | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) · GGUF: search `Qwen3.5-9B-GGUF` |
 | **Google / NPU story** | Gemma 4 E2B | [google/gemma-4-E2B](https://huggingface.co/google/gemma-4-E2B) |
 | **Mobile QAT bundle** | Gemma 4 E2B QAT | [google/gemma-4-E2B-it-qat-mobile-transformers](https://huggingface.co/google/gemma-4-E2B-it-qat-mobile-transformers) |
 | **Larger edge (optional)** | Gemma 4 E4B | [google/gemma-4-E4B](https://huggingface.co/google/gemma-4-E4B) |
@@ -559,11 +576,12 @@ ollama pull embeddinggemma
 | Question | Answer |
 |----------|--------|
 | **Phone 1 stack (locked)?** | ML Kit + **Qwen3.5-2B** + **EmbeddingGemma** + **Whisper base** |
+| **Phone 2 / iQOO quality LLM?** | **Qwen3.5-4B** (Fedora Ask suite: best citations — see [eval-results/REPORT.md](./eval-results/REPORT.md)) |
 | **Phone 2 stack (locked)?** | ML Kit + **Qwen3.5-4B** + **Qwen3-Embed-0.6B** + **Qwen3-Reranker** + Whisper |
 | Best Google / iQOO narrative? | **Gemma 4 E2B/E4B** + **EmbeddingGemma** on Hexagon |
-| Phone 2 VLM (P1)? | **MiniCPM-V 4.6** |
+| Phone 2 VLM (P1)? | **MiniCPM-V 4.6** (defer if OCR path holds) |
 | Phone 2 screen agent (P2)? | **Qwen3-VL-2B** |
-| Hackathon hero model? | **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
+| Hackathon hero model? | Start **Qwen3.5-4B**; stretch **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
 | Full catalog below? | Sections 1–7, 9–13 |
 
 ---
