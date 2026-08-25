@@ -46,10 +46,10 @@ class NotifIngestWorker(
         var idx = 0
         return try {
             while (idx < batch.size) {
-                val text = batch[idx]
-                val r = pulse.ingestText(text, sourceLabel = "WA notif")
+                val (source, text) = batch[idx]
+                val r = pulse.ingestText(text, sourceLabel = "$source notif")
                 if (r.noteId != null) saved++ else skipped++
-                Log.i(TAG, r.preview)
+                Log.i(TAG, "[$source] ${r.preview}")
                 idx++
             }
             val msg = "Notif: saved $saved · skipped $skipped"
@@ -61,7 +61,8 @@ class NotifIngestWorker(
         } catch (e: Exception) {
             Log.w(TAG, "error: ${e.message}")
             for (i in idx until batch.size) {
-                NotifIngestQueue.offer(applicationContext, batch[i])
+                val (source, text) = batch[i]
+                NotifIngestQueue.offer(applicationContext, source, text)
             }
             Result.retry()
         } finally {

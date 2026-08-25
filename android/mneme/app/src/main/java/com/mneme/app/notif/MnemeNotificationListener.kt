@@ -10,14 +10,14 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 
 /**
- * Lightweight WhatsApp notification watcher.
+ * Important-app notification watcher (WA, Gmail, SMS, Telegram, …).
  * Extracts text → queue → WorkManager (LLM only when power gates allow).
  */
 class MnemeNotificationListener : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null || sbn.isOngoing) return
-        if (!NotifTextTriage.isWhatsApp(sbn.packageName)) return
+        if (!NotifTextTriage.isAllowed(sbn.packageName)) return
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         val extras = sbn.notification.extras ?: return
@@ -26,9 +26,9 @@ class MnemeNotificationListener : NotificationListenerService() {
             ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
             ?: messagingLastLine(extras)
 
-        val candidate = NotifTextTriage.candidate(title, text) ?: return
-        Log.i(TAG, "queue: ${candidate.take(80)}")
-        NotifIngestQueue.offer(applicationContext, candidate)
+        val candidate = NotifTextTriage.candidate(sbn.packageName, title, text) ?: return
+        Log.i(TAG, "queue [${candidate.sourceLabel}]: ${candidate.text.take(80)}")
+        NotifIngestQueue.offer(applicationContext, candidate.sourceLabel, candidate.text)
         NotifIngestWorker.enqueueSoon(applicationContext)
     }
 
