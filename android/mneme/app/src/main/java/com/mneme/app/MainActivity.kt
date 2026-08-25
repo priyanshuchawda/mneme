@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -61,15 +62,30 @@ class MainActivity : ComponentActivity() {
 
     private val micPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            viewModel.refreshSetup()
             if (granted) {
-                Toast.makeText(this, "Hold the mic to talk", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Microphone ready for voice Ask", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Microphone permission needed for voice Ask", Toast.LENGTH_SHORT).show()
             }
         }
 
     private val notifPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* optional */ }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            viewModel.refreshSetup()
+        }
+
+    private val mediaPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            viewModel.refreshSetup()
+            if (!granted) {
+                Toast.makeText(
+                    this,
+                    "Photos permission helps Scan WhatsApp media",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
 
     private val projectionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -105,12 +121,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (android.os.Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
         enableEdgeToEdge()
         setContent {
             MnemeTheme {
@@ -131,6 +141,9 @@ class MainActivity : ComponentActivity() {
                             else -> micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     },
+                    onRequestPostNotifications = ::requestPostNotifications,
+                    onRequestMedia = ::requestMediaPermission,
+                    onRequestMicPermission = ::requestMicPermissionOnly,
                 )
             }
         }
@@ -138,6 +151,44 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refreshNotifAccess()
+        viewModel.refreshSetup()
+    }
+
+    private fun requestPostNotifications() {
+        if (Build.VERSION.SDK_INT < 33) {
+            viewModel.refreshSetup()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            viewModel.refreshSetup()
+            return
+        }
+        notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun requestMediaPermission() {
+        val perm = if (Build.VERSION.SDK_INT >= 33) {
+            Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        if (ContextCompat.checkSelfPermission(this, perm) == PackageManager.PERMISSION_GRANTED) {
+            viewModel.refreshSetup()
+            return
+        }
+        mediaPermissionLauncher.launch(perm)
+    }
+
+    private fun requestMicPermissionOnly() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(this, "Microphone already allowed", Toast.LENGTH_SHORT).show()
+            viewModel.refreshSetup()
+            return
+        }
+        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 }

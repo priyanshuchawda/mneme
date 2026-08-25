@@ -16,6 +16,8 @@ import com.mneme.app.notif.MnemeNotificationListener
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
 import com.mneme.app.remind.DueReminderScheduler
+import com.mneme.app.settings.AppSetup
+import com.mneme.app.settings.AppSetupStatus
 import com.mneme.app.voice.AlarmScheduler
 import com.mneme.app.voice.MicRecorder
 import com.mneme.app.voice.TtsSpeaker
@@ -30,7 +32,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class MnemeTab { Memory, Ask }
+enum class MnemeTab { Memory, Ask, Settings }
 
 data class MnemeUiState(
     val tab: MnemeTab = MnemeTab.Memory,
@@ -45,6 +47,15 @@ data class MnemeUiState(
     val askCitations: List<NoteEntity> = emptyList(),
     val listening: Boolean = false,
     val notifAccess: Boolean = false,
+    val setup: AppSetupStatus = AppSetupStatus(
+        postNotifications = false,
+        notifListener = false,
+        mediaImages = false,
+        microphone = false,
+        exactAlarms = false,
+        allFilesAccess = false,
+    ),
+    val showSetupBanner: Boolean = false,
 )
 
 class MnemeViewModel(
@@ -68,21 +79,58 @@ class MnemeViewModel(
     private var pumpJob: Job? = null
 
     init {
-        refreshNotifAccess()
+        refreshSetup(openSettingsIfNeeded = true)
     }
 
-    fun refreshNotifAccess() {
+    fun refreshSetup(openSettingsIfNeeded: Boolean = false) {
+        val app = getApplication<Application>()
+        val setup = AppSetup.snapshot(app)
+        val unseen = !AppSetup.hasSeenSetup(app)
+        val openSetup = openSettingsIfNeeded && unseen && setup.missingCritical
         _ui.value = _ui.value.copy(
-            notifAccess = MnemeNotificationListener.isEnabled(getApplication()),
+            notifAccess = setup.notifListener,
+            setup = setup,
+            showSetupBanner = setup.missingCritical || !setup.readyForDailyUse,
+            tab = if (openSetup) MnemeTab.Settings else _ui.value.tab,
+            status = when {
+                openSetup -> "Finish setup so Retenqo can capture what matters"
+                setup.readyForDailyUse -> _ui.value.status.ifBlank { "Ready" }
+                else -> _ui.value.status
+            },
         )
+        if (openSetup) AppSetup.markSetupSeen(app)
     }
+
+    /** @deprecated use [refreshSetup] */
+    fun refreshNotifAccess() = refreshSetup()
 
     fun openNotifAccessSettings() {
         MnemeNotificationListener.openSettings(getApplication())
     }
 
+    fun openExactAlarmSettings() {
+        AppSetup.openExactAlarmSettings(getApplication())
+    }
+
+    fun openAllFilesAccess() {
+        AppSetup.openAllFilesAccess(getApplication())
+    }
+
+    fun openAppDetails() {
+        AppSetup.openAppDetails(getApplication())
+    }
+
+    fun dismissSetupBanner() {
+        AppSetup.markSetupSeen(getApplication())
+        _ui.value = _ui.value.copy(showSetupBanner = false)
+    }
+
     fun setTab(tab: MnemeTab) {
         if (_ui.value.listening) stopListening(submit = false)
+        if (tab == MnemeTab.Settings) {
+            AppSetup.markSetupSeen(getApplication())
+            refreshSetup()
+        }
         _ui.value = _ui.value.copy(tab = tab)
         if (tab != MnemeTab.Ask) {
             viewModelScope.launch {
