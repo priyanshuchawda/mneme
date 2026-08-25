@@ -1,25 +1,30 @@
 package com.mneme.app.data
 
 import com.mneme.app.ai.HashEmbedder
+import com.mneme.app.ai.MnemeEmbedder
 import java.security.MessageDigest
 
-class NoteRepository(private val dao: NoteDao) {
+class NoteRepository(
+    private val dao: NoteDao,
+    private val embedder: MnemeEmbedder? = null,
+) {
     fun observeNotes() = dao.observeAll()
 
     suspend fun search(query: String) = dao.search(query.trim())
 
     /**
      * Semantic + keyword retrieval. Prefers cosine over stored embeddings; falls back to LIKE.
+     * Only compares vectors of matching dimensionality (Qwen vs Hash).
      */
     suspend fun retrieve(query: String, limit: Int = 5): List<NoteEntity> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
 
-        val qVec = HashEmbedder.embed(q)
+        val qVec = embed(q)
         val scored = dao.getAll().mapNotNull { note ->
-            val vec = HashEmbedder.fromBytes(note.embedding)
-            val score = if (vec != null) {
-                HashEmbedder.cosine(qVec, vec)
+            val vec = fromBytes(note.embedding)
+            val score = if (vec != null && vec.size == qVec.size) {
+                cosine(qVec, vec)
             } else {
                 keywordScore(q, note)
             }
@@ -52,6 +57,7 @@ class NoteRepository(private val dao: NoteDao) {
         val since = System.currentTimeMillis() - 10 * 60_000L
         if (dao.countRecentHash(hash, since) > 0) return null
         val forEmbed = (embedText?.takeIf { it.isNotBlank() } ?: "$title\n$body")
+        val vec = embed(forEmbed)
         return dao.insert(
             NoteEntity(
                 title = title.ifBlank { body.lineSequence().firstOrNull()?.take(80) ?: "Note" },
@@ -59,12 +65,24 @@ class NoteRepository(private val dao: NoteDao) {
                 source = source,
                 dueAt = dueAt,
                 contentHash = hash,
-                embedding = HashEmbedder.toBytes(HashEmbedder.embed(forEmbed)),
+                embedding = toBytes(vec),
             )
         ).takeIf { it > 0 }
     }
 
     suspend fun delete(id: Long) = dao.delete(id)
+
+    private suspend fun embed(text: String): FloatArray =
+        embedder?.embed(text) ?: HashEmbedder.embed(text)
+
+    private fun toBytes(vec: FloatArray): ByteArray =
+        embedder?.toBytes(vec) ?: HashEmbedder.toBytes(vec)
+
+    private fun fromBytes(bytes: ByteArray?): FloatArray? =
+        embedder?.fromBytes(bytes) ?: HashEmbedder.fromBytes(bytes)
+
+    private fun cosine(a: FloatArray, b: FloatArray): Float =
+        embedder?.cosine(a, b) ?: HashEmbedder.cosine(a, b)
 
     private fun keywordScore(q: String, note: NoteEntity): Float {
         val hay = "${note.title} ${note.body}".lowercase()

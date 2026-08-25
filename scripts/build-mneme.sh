@@ -17,6 +17,28 @@ case "$JAVA_VER" in
     ;;
 esac
 TASK="${1:-assembleDebug}"
+
+# Apply tracked Qwen-embedding JNI overlay into gitignored tools/llama.android
+OVERLAY="$APP_DIR/llama-embed-overlay"
+LLAMA_LIB="$ROOT/tools/llama.cpp/examples/llama.android/lib"
+if [[ -d "$LLAMA_LIB/src/main/cpp" && -d "$OVERLAY" ]]; then
+  mkdir -p "$LLAMA_LIB/src/main/java/com/arm/aichat"
+  cp -f "$OVERLAY/cpp/embedding_jni.cpp" "$LLAMA_LIB/src/main/cpp/embedding_jni.cpp"
+  cp -f "$OVERLAY/java/com/arm/aichat/EmbeddingEngine.kt" \
+    "$LLAMA_LIB/src/main/java/com/arm/aichat/EmbeddingEngine.kt"
+  CMAKE="$LLAMA_LIB/src/main/cpp/CMakeLists.txt"
+  if [[ -f "$CMAKE" ]] && ! grep -q 'embedding_jni.cpp' "$CMAKE"; then
+    # Insert embedding_jni.cpp into the SHARED library source list
+    sed -i 's/ai_chat.cpp)/ai_chat.cpp\n        embedding_jni.cpp)/' "$CMAKE" || true
+    if ! grep -q 'embedding_jni.cpp' "$CMAKE"; then
+      echo "WARN: could not patch CMakeLists for embedding_jni.cpp — apply overlay manually"
+    fi
+  fi
+  echo "Applied llama-embed-overlay → llama.android"
+else
+  echo "WARN: llama.android or overlay missing; embed JNI may be unavailable"
+fi
+
 cd "$APP_DIR"
 echo "JDK: $JAVA_VER"
 ./gradlew "$TASK" --no-daemon
