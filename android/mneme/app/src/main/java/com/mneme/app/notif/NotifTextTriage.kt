@@ -37,8 +37,8 @@ object NotifTextTriage {
             else -> t
         }
         if (combined.length < 12) return null
+        if (PulsePipelineHints.shouldSkipIngest(combined)) return null
         if (!PulsePipelineHints.looksImportant(combined) && combined.length < 48) return null
-        if (PulsePipelineHints.looksLikeSelfUi(combined)) return null
         return combined.take(1_200)
     }
 }

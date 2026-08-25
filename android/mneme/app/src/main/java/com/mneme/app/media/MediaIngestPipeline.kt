@@ -7,7 +7,7 @@ import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.mneme.app.ai.LlmBridge
+import com.mneme.app.ai.PulsePipelineHints
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +34,6 @@ data class MediaScanResult(
 class MediaIngestPipeline(
     private val context: Context,
     private val pulse: PulsePipeline,
-    private val llm: LlmBridge? = null,
 ) {
     private val mutex = Mutex()
     private val prefs by lazy {
@@ -99,8 +98,9 @@ class MediaIngestPipeline(
         if (text.length < 12) {
             return PulseResult(null, "Skipped weak OCR: ${file.name}", false)
         }
-        // Ensure LLM available for extract when possible
-        llm?.let { /* PulsePipeline handles load */ }
+        if (PulsePipelineHints.shouldSkipIngest(text)) {
+            return PulseResult(null, "Skipped junk OCR: ${file.name}", false)
+        }
         return pulse.ingestText(text, sourceLabel = label)
     }
 

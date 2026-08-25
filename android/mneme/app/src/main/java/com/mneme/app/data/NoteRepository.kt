@@ -4,6 +4,11 @@ import com.mneme.app.ai.HashEmbedder
 import com.mneme.app.ai.MnemeEmbedder
 import java.security.MessageDigest
 
+data class ScoredNote(
+    val note: NoteEntity,
+    val score: Float,
+)
+
 class NoteRepository(
     private val dao: NoteDao,
     private val embedder: MnemeEmbedder? = null,
@@ -12,11 +17,13 @@ class NoteRepository(
 
     suspend fun search(query: String) = dao.search(query.trim())
 
+    suspend fun retrieve(query: String, limit: Int = 5): List<NoteEntity> =
+        retrieveScored(query, limit).map { it.note }
+
     /**
-     * Semantic + keyword retrieval. Prefers cosine over stored embeddings; falls back to LIKE.
-     * Only compares vectors of matching dimensionality (Qwen vs Hash).
+     * Semantic + keyword retrieval with scores for Ask relevance gating.
      */
-    suspend fun retrieve(query: String, limit: Int = 5): List<NoteEntity> {
+    suspend fun retrieveScored(query: String, limit: Int = 5): List<ScoredNote> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
 
@@ -28,17 +35,17 @@ class NoteRepository(
             } else {
                 keywordScore(q, note)
             }
-            if (score > 0.05f) note to score else null
-        }.sortedByDescending { it.second }
+            if (score > 0.05f) ScoredNote(note, score) else null
+        }.sortedByDescending { it.score }
 
-        if (scored.isNotEmpty()) return scored.take(limit).map { it.first }
+        if (scored.isNotEmpty()) return scored.take(limit)
 
         return dao.search(q).ifEmpty {
             q.split(Regex("\\s+"))
                 .filter { it.length > 2 }
                 .flatMap { dao.search(it) }
                 .distinctBy { it.id }
-        }.take(limit)
+        }.take(limit).map { ScoredNote(it, 0.2f) }
     }
 
     /**

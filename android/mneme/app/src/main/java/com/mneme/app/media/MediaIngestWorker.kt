@@ -43,7 +43,7 @@ class MediaIngestWorker(
         val embedder = MnemeEmbedder(applicationContext, llm)
         val notes = NoteRepository(MnemeDatabase.get(applicationContext).notes(), embedder)
         val pulse = PulsePipeline(applicationContext, notes, llm)
-        val media = MediaIngestPipeline(applicationContext, pulse, llm)
+        val media = MediaIngestPipeline(applicationContext, pulse)
         return try {
             val result = media.scanWhatsAppRecent(limit = limit)
             Log.i(TAG, result.message)
