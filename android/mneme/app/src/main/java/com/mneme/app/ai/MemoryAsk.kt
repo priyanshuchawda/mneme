@@ -2,6 +2,7 @@ package com.mneme.app.ai
 
 import com.mneme.app.data.NoteEntity
 import com.mneme.app.data.NoteRepository
+import com.mneme.app.remind.DueDigest
 import java.text.DateFormat
 import java.util.Date
 
@@ -17,6 +18,15 @@ class MemoryAsk(
     suspend fun ask(question: String): AskResult {
         val q = question.trim()
         require(q.isNotBlank()) { "Empty question" }
+
+        if (DueDigest.isDueQuery(q)) {
+            val (start, end) = DueDigest.queryWindow()
+            val dueNotes = notes.dueBetween(start, end)
+            return AskResult(
+                answer = DueDigest.format(dueNotes),
+                citations = dueNotes,
+            )
+        }
 
         val scored = notes.retrieveScored(q, limit = 5)
         val hits = scored.map { it.note }

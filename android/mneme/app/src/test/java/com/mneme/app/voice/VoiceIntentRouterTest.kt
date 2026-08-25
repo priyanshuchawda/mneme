@@ -26,4 +26,10 @@ class VoiceIntentRouterTest {
         val i = VoiceIntentRouter.route("when is the lab due")
         assertTrue(i is VoiceIntent.Query)
     }
+
+    @Test
+    fun routesWhatsDue() {
+        val i = VoiceIntentRouter.route("what's due today")
+        assertTrue(i is VoiceIntent.WhatsDue)
+    }
 }

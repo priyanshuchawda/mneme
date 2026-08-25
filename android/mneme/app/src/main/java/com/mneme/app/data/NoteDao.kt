@@ -35,6 +35,15 @@ interface NoteDao {
     )
     suspend fun countRecentHash(hash: String, since: Long): Int
 
+    @Query(
+        """
+        SELECT * FROM notes
+        WHERE dueAt IS NOT NULL AND dueAt >= :startMs AND dueAt <= :endMs
+        ORDER BY dueAt ASC
+        """
+    )
+    suspend fun dueBetween(startMs: Long, endMs: Long): List<NoteEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(note: NoteEntity): Long
 

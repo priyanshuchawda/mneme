@@ -15,6 +15,7 @@ import com.mneme.app.media.MnemePowerGates
 import com.mneme.app.notif.MnemeNotificationListener
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
+import com.mneme.app.remind.DueReminderScheduler
 import com.mneme.app.voice.AlarmScheduler
 import com.mneme.app.voice.MicRecorder
 import com.mneme.app.voice.TtsSpeaker
@@ -155,6 +156,21 @@ class MnemeViewModel(
         viewModelScope.launch {
             _ui.value = _ui.value.copy(askBusy = true, askAnswer = null, askQuery = text)
             when (val intent = VoiceIntentRouter.route(text)) {
+                is VoiceIntent.WhatsDue -> {
+                    _ui.value = _ui.value.copy(status = "Checking due dates…")
+                    val result: AskResult = try {
+                        asker.ask("what's due")
+                    } catch (e: Exception) {
+                        AskResult("Due check failed: ${e.message}", emptyList())
+                    }
+                    _ui.value = _ui.value.copy(
+                        askBusy = false,
+                        askAnswer = result.answer,
+                        askCitations = result.citations,
+                        status = if (result.citations.isEmpty()) "No dues" else "${result.citations.size} with due dates",
+                    )
+                    tts.speak(result.answer.take(160))
+                }
                 is VoiceIntent.SetAlarm -> {
                     val msg = try {
                         alarms.schedule(intent.hour, intent.minute, intent.label)
@@ -241,8 +257,18 @@ class MnemeViewModel(
         }
     }
 
+    fun showWhatsDue() {
+        if (_ui.value.tab != MnemeTab.Ask) {
+            _ui.value = _ui.value.copy(tab = MnemeTab.Ask)
+        }
+        handleUtterance("what's due today")
+    }
+
     fun deleteNote(id: Long) {
-        viewModelScope.launch { notes.delete(id) }
+        viewModelScope.launch {
+            DueReminderScheduler.cancel(getApplication(), id)
+            notes.delete(id)
+        }
     }
 
     override fun onCleared() {
