@@ -41,7 +41,7 @@ class MainActivity : ComponentActivity() {
     private val tts by lazy { TtsSpeaker(this) }
     private val alarms by lazy { AlarmScheduler(this) }
     private val pulse by lazy { PulsePipeline(this, notes, llm) }
-    private val media by lazy { MediaIngestPipeline(this, pulse, llm) }
+    private val media by lazy { MediaIngestPipeline(this, pulse) }
     private val asker by lazy { MemoryAsk(notes, llm) }
     private val capture by lazy { ScreenCapture(this) }
 

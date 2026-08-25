@@ -87,7 +87,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.material)
     implementation(libs.mlkit.text.recognition)
-    implementation(libs.tensorflow.lite)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -103,6 +102,7 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
 
     testImplementation(libs.junit)
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

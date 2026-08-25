@@ -5,9 +5,9 @@ import java.nio.ByteOrder
 import kotlin.math.sqrt
 
 /**
- * Local semantic vectors without loading EmbeddingGemma (180MB + SentencePiece).
- * Hashed char/word n-grams → fixed dim, L2-normalized. Good for small personal corpora;
- * swap for EmbeddingGemma TFLite once tokenizer is wired.
+ * Local semantic vectors without loading a heavy embedding model.
+ * Hashed char/word n-grams → fixed dim, L2-normalized. Used when Qwen embed GGUF is absent;
+ * [MnemeEmbedder] prefers Qwen3-Embedding-0.6B when available.
  */
 object HashEmbedder {
     const val DIM = 256

@@ -1,7 +1,6 @@
 package com.mneme.app.notif
 
 import android.content.Context
-import org.json.JSONArray
 
 /**
  * Tiny durable queue for notification texts (no Room schema churn).
@@ -15,32 +14,21 @@ object NotifIngestQueue {
     @Synchronized
     fun offer(context: Context, text: String) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val arr = JSONArray(prefs.getString(KEY, "[]"))
-        if (arr.length() > 0 && arr.getString(arr.length() - 1) == text) return
-        arr.put(text)
-        val trimmed = JSONArray()
-        val start = (arr.length() - MAX).coerceAtLeast(0)
-        for (i in start until arr.length()) trimmed.put(arr.getString(i))
-        prefs.edit().putString(KEY, trimmed.toString()).apply()
+        val next = NotifQueueLogic.offer(prefs.getString(KEY, "[]") ?: "[]", text, MAX)
+        prefs.edit().putString(KEY, next).apply()
     }
 
     @Synchronized
     fun drain(context: Context, limit: Int): List<String> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val arr = JSONArray(prefs.getString(KEY, "[]"))
-        if (arr.length() == 0) return emptyList()
-        val take = minOf(limit, arr.length())
-        val out = ArrayList<String>(take)
-        for (i in 0 until take) out.add(arr.getString(i))
-        val rest = JSONArray()
-        for (i in take until arr.length()) rest.put(arr.getString(i))
-        prefs.edit().putString(KEY, rest.toString()).apply()
-        return out
+        val (batch, rest) = NotifQueueLogic.drain(prefs.getString(KEY, "[]") ?: "[]", limit)
+        prefs.edit().putString(KEY, rest).apply()
+        return batch
     }
 
     @Synchronized
     fun size(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        return JSONArray(prefs.getString(KEY, "[]")).length()
+        return NotifQueueLogic.size(prefs.getString(KEY, "[]") ?: "[]")
     }
 }

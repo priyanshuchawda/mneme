@@ -72,8 +72,8 @@ class PulsePipeline(
 
     private suspend fun ingestTextLocked(text: String, sourceLabel: String): PulseResult {
         val trimmed = text.trim()
-        if (PulsePipelineHints.looksLikeSelfUi(trimmed)) {
-            return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
+        if (PulsePipelineHints.shouldSkipIngest(trimmed)) {
+            return PulseResult(null, "Skipped junk / UI chrome", skippedDuplicate = false)
         }
         if (!shouldSave(trimmed)) {
             return PulseResult(null, "Nothing important on screen", skippedDuplicate = false)
@@ -85,13 +85,13 @@ class PulsePipeline(
             NoteExtractor.fallback(trimmed)
         }
 
-        if (PulsePipelineHints.looksLikeSelfUi("${extracted.title}\n${extracted.body}")) {
-            return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
+        if (PulsePipelineHints.shouldSkipIngest("${extracted.title}\n${extracted.body}")) {
+            return PulseResult(null, "Skipped junk / UI chrome", skippedDuplicate = false)
         }
         if (!extracted.important && extracted.kind == "chat") {
             return PulseResult(null, "Skipped casual chat", skippedDuplicate = false)
         }
-        if (extracted.title.matches(Regex("""^\d{1,2}:\d{2}$"""))) {
+        if (PulsePipelineHints.looksLikeClockOnlyTitle(extracted.title)) {
             return PulseResult(null, "Skipped junk title", skippedDuplicate = false)
         }
 

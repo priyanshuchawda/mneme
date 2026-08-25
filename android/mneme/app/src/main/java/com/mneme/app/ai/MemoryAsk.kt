@@ -18,12 +18,10 @@ class MemoryAsk(
         val q = question.trim()
         require(q.isNotBlank()) { "Empty question" }
 
-        val hits = notes.retrieve(q, limit = 5)
-        if (hits.isEmpty()) {
-            return AskResult(
-                answer = "I don't have that in your memory yet. Try Pulse on the screen that has it.",
-                citations = emptyList(),
-            )
+        val scored = notes.retrieveScored(q, limit = 5)
+        val hits = scored.map { it.note }
+        if (hits.isEmpty() || scored.first().score < MIN_RELEVANCE) {
+            return AskResult(answer = AskAnswerGuard.REFUSE, citations = emptyList())
         }
 
         val context = hits.mapIndexed { i, n ->
@@ -34,8 +32,8 @@ class MemoryAsk(
 
         val prompt = """
             Answer ONLY using the CONTEXT notes. Always cite note numbers like [1].
-            If missing, say exactly: I don't have that in your memory.
-            Be one short sentence. No thinking.
+            If missing or unsure, say exactly: I don't have that in your memory.
+            One short sentence. No thinking. Do not invent dates, names, or facts.
             Question: $q
 
             CONTEXT:
@@ -43,14 +41,19 @@ class MemoryAsk(
             /no_think
         """.trimIndent()
 
-        val answer = try {
-            llm.complete(prompt, maxTokens = 96)
-                .ifBlank { "I don't have that in your memory." }
+        val raw = try {
+            llm.complete(prompt, maxTokens = 96).ifBlank { AskAnswerGuard.REFUSE }
         } catch (_: Exception) {
-            // Offline / OOM: still show retrieved notes as citations
-            "From your memory (model busy):\n" + hits.joinToString("\n") { "• ${it.title}" }
+            // Offline / OOM: cite titles only — still grounded
+            "From your memory [1]: " + hits.first().title
         }
 
-        return AskResult(answer = answer, citations = hits)
+        val guarded = AskAnswerGuard.sanitize(raw, hits)
+        return AskResult(answer = guarded.answer, citations = guarded.citations)
+    }
+
+    companion object {
+        /** Hash/Qwen cosine or keyword fraction below this → refuse. */
+        const val MIN_RELEVANCE = 0.12f
     }
 }
