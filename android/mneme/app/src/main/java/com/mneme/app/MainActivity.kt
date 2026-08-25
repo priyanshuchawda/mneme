@@ -1,6 +1,8 @@
 package com.mneme.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.widget.Toast
@@ -10,10 +12,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.MemoryAsk
+import com.mneme.app.ai.MnemeEmbedder
 import com.mneme.app.data.MnemeDatabase
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.pulse.ProjectionService
@@ -22,19 +26,35 @@ import com.mneme.app.pulse.ScreenCapture
 import com.mneme.app.ui.theme.MnemeTheme
 import com.mneme.app.ui.timeline.MnemeHomeScreen
 import com.mneme.app.ui.timeline.MnemeViewModel
+import com.mneme.app.voice.AlarmScheduler
+import com.mneme.app.voice.TtsSpeaker
+import com.mneme.app.voice.WhisperBridge
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private val notes by lazy { NoteRepository(MnemeDatabase.get(this).notes()) }
     private val llm by lazy { LlmBridge(this) }
+    private val embedder by lazy { MnemeEmbedder(this, llm) }
+    private val notes by lazy { NoteRepository(MnemeDatabase.get(this).notes(), embedder) }
+    private val whisper by lazy { WhisperBridge(this) }
+    private val tts by lazy { TtsSpeaker(this) }
+    private val alarms by lazy { AlarmScheduler(this) }
     private val pulse by lazy { PulsePipeline(this, notes, llm) }
     private val asker by lazy { MemoryAsk(notes, llm) }
     private val capture by lazy { ScreenCapture(this) }
 
     private val viewModel: MnemeViewModel by viewModels {
-        MnemeViewModel.factory(notes, pulse, asker, llm)
+        MnemeViewModel.factory(notes, pulse, asker, llm, whisper, tts, alarms)
     }
+
+    private val micPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                Toast.makeText(this, "Hold the mic to talk", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Microphone permission needed for voice Ask", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     private val projectionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -68,6 +88,15 @@ class MainActivity : ComponentActivity() {
                         if (ui.pulsing) return@MnemeHomeScreen
                         val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                         projectionLauncher.launch(mgr.createScreenCaptureIntent())
+                    },
+                    onRequestMic = {
+                        when {
+                            ContextCompat.checkSelfPermission(
+                                this,
+                                Manifest.permission.RECORD_AUDIO,
+                            ) == PackageManager.PERMISSION_GRANTED -> viewModel.startListening()
+                            else -> micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
                     },
                 )
             }
