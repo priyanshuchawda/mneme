@@ -24,7 +24,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -58,6 +60,9 @@ fun MnemeHomeScreen(
     viewModel: MnemeViewModel,
     onPulse: () -> Unit,
     onRequestMic: () -> Unit,
+    onRequestPostNotifications: () -> Unit,
+    onRequestMedia: () -> Unit,
+    onRequestMicPermission: () -> Unit,
 ) {
     val notes by viewModel.timeline.collectAsStateWithLifecycle()
     val ui by viewModel.ui.collectAsStateWithLifecycle()
@@ -101,6 +106,17 @@ fun MnemeHomeScreen(
                     icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
                     label = { Text("Ask") },
                 )
+                NavigationBarItem(
+                    selected = ui.tab == MnemeTab.Settings,
+                    onClick = { viewModel.setTab(MnemeTab.Settings) },
+                    icon = {
+                        Icon(
+                            if (ui.tab == MnemeTab.Settings) Icons.Filled.Settings else Icons.Outlined.Settings,
+                            contentDescription = null,
+                        )
+                    },
+                    label = { Text("Settings") },
+                )
             }
         },
     ) { padding ->
@@ -122,6 +138,7 @@ fun MnemeHomeScreen(
                 text = when (ui.tab) {
                     MnemeTab.Memory -> "Your private memory stays on this phone."
                     MnemeTab.Ask -> "Ask only from what you saved."
+                    MnemeTab.Settings -> "Permissions and capture setup."
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -144,16 +161,10 @@ fun MnemeHomeScreen(
                     TextButton(onClick = viewModel::showWhatsDue) {
                         Text("Due")
                     }
-                    TextButton(
-                        onClick = viewModel::openNotifAccessSettings,
-                    ) {
-                        Text(if (ui.notifAccess) "Notifs on" else "Enable notifs")
-                    }
-                    TextButton(
-                        onClick = viewModel::scanWhatsAppMedia,
-                        enabled = !ui.mediaBusy && !ui.pulsing,
-                    ) {
-                        Text(if (ui.mediaBusy) "Scanning…" else "Scan WA")
+                    if (ui.showSetupBanner) {
+                        TextButton(onClick = { viewModel.setTab(MnemeTab.Settings) }) {
+                            Text("Setup")
+                        }
                     }
                 }
             }
@@ -176,6 +187,20 @@ fun MnemeHomeScreen(
                     onAsk = viewModel::submitAsk,
                     onMicDown = onRequestMic,
                     onMicUp = { viewModel.stopListening(submit = true) },
+                )
+                MnemeTab.Settings -> SettingsPane(
+                    setup = ui.setup,
+                    mediaBusy = ui.mediaBusy,
+                    showBanner = ui.showSetupBanner,
+                    onDismissBanner = viewModel::dismissSetupBanner,
+                    onRequestPostNotifications = onRequestPostNotifications,
+                    onOpenNotifListener = viewModel::openNotifAccessSettings,
+                    onRequestMedia = onRequestMedia,
+                    onOpenAllFiles = viewModel::openAllFilesAccess,
+                    onRequestMic = onRequestMicPermission,
+                    onOpenExactAlarm = viewModel::openExactAlarmSettings,
+                    onScanWhatsApp = viewModel::scanWhatsAppMedia,
+                    onOpenAppDetails = viewModel::openAppDetails,
                 )
             }
         }

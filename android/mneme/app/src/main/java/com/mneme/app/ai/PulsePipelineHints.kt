@@ -10,7 +10,7 @@ object PulsePipelineHints {
     )
 
     private val SELF_UI = Regex(
-        """(?i)(your private memory stays|search memory|ask only from what you saved|hold mic to ask|ask memory|cited notes|answered from|enable notifs|scan wa)""",
+        """(?i)(your private memory stays|search memory|ask only from what you saved|hold mic to ask|ask memory|cited notes|answered from|enable notifs|scan wa|finish setup|notification access|due reminders|whatsapp media|retenqo settings)""",
     )
 
     private val BROWSER_OR_AI = Regex(
