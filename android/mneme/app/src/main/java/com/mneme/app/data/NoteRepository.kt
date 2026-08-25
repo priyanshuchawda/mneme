@@ -38,6 +38,7 @@ class NoteRepository(private val dao: NoteDao) {
 
     /**
      * Saves a note unless the same content hash was saved in the last 10 minutes.
+     * @param embedText preferred text for the vector (cleaner than raw OCR body)
      * @return inserted id, or null if duplicate skipped
      */
     suspend fun saveIfNew(
@@ -45,11 +46,12 @@ class NoteRepository(private val dao: NoteDao) {
         body: String,
         source: String,
         dueAt: Long? = null,
+        embedText: String? = null,
     ): Long? {
         val hash = sha256("$title|$body|$source")
         val since = System.currentTimeMillis() - 10 * 60_000L
         if (dao.countRecentHash(hash, since) > 0) return null
-        val text = "$title\n$body"
+        val forEmbed = (embedText?.takeIf { it.isNotBlank() } ?: "$title\n$body")
         return dao.insert(
             NoteEntity(
                 title = title.ifBlank { body.lineSequence().firstOrNull()?.take(80) ?: "Note" },
@@ -57,7 +59,7 @@ class NoteRepository(private val dao: NoteDao) {
                 source = source,
                 dueAt = dueAt,
                 contentHash = hash,
-                embedding = HashEmbedder.toBytes(HashEmbedder.embed(text)),
+                embedding = HashEmbedder.toBytes(HashEmbedder.embed(forEmbed)),
             )
         ).takeIf { it > 0 }
     }

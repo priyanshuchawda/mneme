@@ -1,7 +1,7 @@
 # On-Device Model Catalog — Mneme (2026)
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
-**Updated:** 2026-08-23 (Fedora eval fixed — Qwen3.5-4B Ask proven)  
+**Updated:** 2026-08-23 (Phone 1 default embed → Qwen3-Embedding-0.6B)  
 **Project:** Mneme — offline personal memory assistant (iQOO Hackathon 2026)  
 **Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO 15 loaner (event)
 
