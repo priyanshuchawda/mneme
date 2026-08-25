@@ -20,6 +20,7 @@ import com.mneme.app.ai.MemoryAsk
 import com.mneme.app.ai.MnemeEmbedder
 import com.mneme.app.data.MnemeDatabase
 import com.mneme.app.data.NoteRepository
+import com.mneme.app.media.MediaIngestPipeline
 import com.mneme.app.pulse.ProjectionService
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.ScreenCapture
@@ -40,11 +41,12 @@ class MainActivity : ComponentActivity() {
     private val tts by lazy { TtsSpeaker(this) }
     private val alarms by lazy { AlarmScheduler(this) }
     private val pulse by lazy { PulsePipeline(this, notes, llm) }
+    private val media by lazy { MediaIngestPipeline(this, pulse, llm) }
     private val asker by lazy { MemoryAsk(notes, llm) }
     private val capture by lazy { ScreenCapture(this) }
 
     private val viewModel: MnemeViewModel by viewModels {
-        MnemeViewModel.factory(notes, pulse, asker, llm, whisper, tts, alarms)
+        MnemeViewModel.factory(notes, pulse, media, asker, llm, whisper, tts, alarms)
     }
 
     private val micPermissionLauncher =

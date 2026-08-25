@@ -1,0 +1,104 @@
+package com.mneme.app.voice
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.provider.AlarmClock
+import android.util.Log
+import java.util.Calendar
+
+sealed class VoiceIntent {
+    data class Query(val text: String) : VoiceIntent()
+    data class Remember(val text: String) : VoiceIntent()
+    data class SetAlarm(val hour: Int, val minute: Int, val label: String) : VoiceIntent()
+}
+
+object VoiceIntentRouter {
+    private val alarmRe = Regex(
+        """(?i)\b(?:set\s+(?:an?\s+)?alarm|wake\s+me|remind\s+me)\b.*?\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b""",
+    )
+    private val rememberRe = Regex("""(?i)^\s*(?:remember|save|note)\b[:\s]+(.+)$""")
+
+    fun route(transcript: String): VoiceIntent {
+        val t = transcript.trim()
+        if (t.isBlank()) return VoiceIntent.Query("")
+
+        alarmRe.find(t)?.let { m ->
+            var hour = m.groupValues[1].toIntOrNull() ?: return@let
+            val minute = m.groupValues[2].toIntOrNull() ?: 0
+            val ampm = m.groupValues[3].lowercase()
+            if (ampm == "pm" && hour < 12) hour += 12
+            if (ampm == "am" && hour == 12) hour = 0
+            if (hour in 0..23 && minute in 0..59) {
+                return VoiceIntent.SetAlarm(hour, minute, label = t.take(80))
+            }
+        }
+
+        rememberRe.find(t)?.let { m ->
+            val body = m.groupValues[1].trim()
+            if (body.isNotBlank()) return VoiceIntent.Remember(body)
+        }
+
+        return VoiceIntent.Query(t)
+    }
+}
+
+class AlarmScheduler(private val context: Context) {
+    /**
+     * Prefer system AlarmClock UI intent (works without SCHEDULE_EXACT_ALARM on many OEMs).
+     * Falls back to AlarmManager + notification broadcast.
+     */
+    fun schedule(hour: Int, minute: Int, label: String): String {
+        return try {
+            val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                putExtra(AlarmClock.EXTRA_HOUR, hour)
+                putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                putExtra(AlarmClock.EXTRA_MESSAGE, label)
+                putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            "Alarm set for %02d:%02d".format(hour, minute)
+        } catch (e: Exception) {
+            Log.w(TAG, "AlarmClock failed: ${e.message}")
+            scheduleExact(hour, minute, label)
+        }
+    }
+
+    private fun scheduleExact(hour: Int, minute: Int, label: String): String {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+        }
+        val pi = PendingIntent.getBroadcast(
+            context,
+            (hour * 60 + minute),
+            Intent(context, MnemeAlarmReceiver::class.java).putExtra("label", label),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val am = context.getSystemService(AlarmManager::class.java)
+        if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+        } else {
+            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+        }
+        return "Reminder armed for %02d:%02d".format(hour, minute)
+    }
+
+    companion object {
+        private const val TAG = "MnemeAlarm"
+    }
+}
+
+class MnemeAlarmReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val label = intent.getStringExtra("label") ?: "Mneme reminder"
+        Log.i("MnemeAlarm", "fired: $label")
+        // Best-effort: speak via a one-shot TTS is awkward in receivers; show toast via notification later (#7)
+    }
+}

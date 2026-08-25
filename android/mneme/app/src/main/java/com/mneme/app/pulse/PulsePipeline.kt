@@ -46,44 +46,7 @@ class PulsePipeline(
 
             try {
                 val text = recognize(bitmap).trim()
-                if (PulsePipelineHints.looksLikeSelfUi(text)) {
-                    return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
-                }
-                if (!shouldSave(text)) {
-                    return PulseResult(null, "Nothing important on screen", skippedDuplicate = false)
-                }
-
-                val extracted = if (llm != null) {
-                    NoteExtractor.extract(llm, text)
-                } else {
-                    NoteExtractor.fallback(text)
-                }
-
-                if (PulsePipelineHints.looksLikeSelfUi("${extracted.title}\n${extracted.body}")) {
-                    return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
-                }
-                if (!extracted.important && extracted.kind == "chat") {
-                    return PulseResult(null, "Skipped casual chat", skippedDuplicate = false)
-                }
-                // Clock-only titles are OCR junk
-                if (extracted.title.matches(Regex("""^\d{1,2}:\d{2}$"""))) {
-                    return PulseResult(null, "Skipped junk title", skippedDuplicate = false)
-                }
-
-                val id = notes.saveIfNew(
-                    title = extracted.title,
-                    body = extracted.body,
-                    source = sourceLabel,
-                    dueAt = extracted.dueAt,
-                    embedText = extracted.embedText,
-                )
-                if (id == null) {
-                    PulseResult(null, "Already saved recently", skippedDuplicate = true)
-                } else {
-                    val dueHint = if (extracted.dueAt != null) " · due set" else ""
-                    val kindHint = if (extracted.kind != "other") " · ${extracted.kind}" else ""
-                    PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint", skippedDuplicate = false)
-                }
+                return@withLock ingestTextLocked(text, sourceLabel)
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()
             }
@@ -99,6 +62,54 @@ class PulsePipeline(
                 if (file.exists()) file.delete()
             }
         }
+
+    /**
+     * Shared path for Pulse + WhatsApp media ingest (no screenshot debounce).
+     */
+    suspend fun ingestText(text: String, sourceLabel: String): PulseResult = mutex.withLock {
+        ingestTextLocked(text, sourceLabel)
+    }
+
+    private suspend fun ingestTextLocked(text: String, sourceLabel: String): PulseResult {
+        val trimmed = text.trim()
+        if (PulsePipelineHints.looksLikeSelfUi(trimmed)) {
+            return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
+        }
+        if (!shouldSave(trimmed)) {
+            return PulseResult(null, "Nothing important on screen", skippedDuplicate = false)
+        }
+
+        val extracted = if (llm != null) {
+            NoteExtractor.extract(llm, trimmed)
+        } else {
+            NoteExtractor.fallback(trimmed)
+        }
+
+        if (PulsePipelineHints.looksLikeSelfUi("${extracted.title}\n${extracted.body}")) {
+            return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
+        }
+        if (!extracted.important && extracted.kind == "chat") {
+            return PulseResult(null, "Skipped casual chat", skippedDuplicate = false)
+        }
+        if (extracted.title.matches(Regex("""^\d{1,2}:\d{2}$"""))) {
+            return PulseResult(null, "Skipped junk title", skippedDuplicate = false)
+        }
+
+        val id = notes.saveIfNew(
+            title = extracted.title,
+            body = extracted.body,
+            source = sourceLabel,
+            dueAt = extracted.dueAt,
+            embedText = extracted.embedText,
+        )
+        return if (id == null) {
+            PulseResult(null, "Already saved recently", skippedDuplicate = true)
+        } else {
+            val dueHint = if (extracted.dueAt != null) " · due set" else ""
+            val kindHint = if (extracted.kind != "other") " · ${extracted.kind}" else ""
+            PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint", skippedDuplicate = false)
+        }
+    }
 
     private suspend fun recognize(bitmap: Bitmap): String =
         suspendCancellableCoroutine { cont ->
