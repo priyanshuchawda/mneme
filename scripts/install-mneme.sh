@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Mneme on connected phone, stage models, grant runtime bits.
+# Install Retenqo on connected phone, stage models, grant runtime bits.
 # Usage: ./scripts/install-mneme.sh [serial]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -7,11 +7,11 @@ SERIAL="${1:-${ANDROID_SERIAL:-1431df87}}"
 APK="$ROOT/android/mneme/app/build/outputs/apk/debug/app-debug.apk"
 PKG="com.mneme.app.debug"
 APP_FILES="/sdcard/Android/data/$PKG/files/models"
-LLM_SRC="/sdcard/Mneme/models/phone1/llm/Qwen3.5-2B-M-TS-Q4_K_M.gguf"
+LLM_SRC="/sdcard/Retenqo/models/phone1/llm/Qwen3.5-2B-M-TS-Q4_K_M.gguf"
 LLM_DST="$APP_FILES/llm/Qwen3.5-2B-M-TS-Q4_K_M.gguf"
-WHISPER_SRC="/sdcard/Mneme/models/phone1/whisper/ggml-base-q5_1.bin"
+WHISPER_SRC="/sdcard/Retenqo/models/phone1/whisper/ggml-base-q5_1.bin"
 WHISPER_DST="$APP_FILES/whisper/ggml-base-q5_1.bin"
-EMBED_SRC="/sdcard/Mneme/models/phone1/embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf"
+EMBED_SRC="/sdcard/Retenqo/models/phone1/embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf"
 EMBED_DST="$APP_FILES/embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf"
 
 [[ -f "$APK" ]] || { echo "Missing APK — run ./scripts/build-mneme.sh first"; exit 1; }

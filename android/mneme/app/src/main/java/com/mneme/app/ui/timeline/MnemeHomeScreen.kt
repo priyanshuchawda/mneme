@@ -114,7 +114,7 @@ fun MnemeHomeScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Mneme",
+                text = "Retenqo",
                 style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )

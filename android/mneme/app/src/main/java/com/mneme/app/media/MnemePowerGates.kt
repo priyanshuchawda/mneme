@@ -9,7 +9,7 @@ import android.util.Log
 import java.io.File
 
 /**
- * Battery / thermal / RAM gates for heavy Mneme work (LLM / OCR batch).
+ * Battery / thermal / RAM gates for heavy Retenqo work (LLM / OCR batch).
  * Lightweight triggers may still enqueue WorkManager; this decides whether to run.
  */
 object MnemePowerGates {

@@ -13,7 +13,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Mneme"
+rootProject.name = "Retenqo"
 include(":app")
 include(":llama-lib")
 include(":whisper-lib")

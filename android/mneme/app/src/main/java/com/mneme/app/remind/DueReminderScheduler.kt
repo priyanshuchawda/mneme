@@ -37,7 +37,7 @@ object DueReminderScheduler {
                 "Due reminders",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
-                description = "Mneme reminders for notes with due dates"
+                description = "Retenqo reminders for notes with due dates"
             },
         )
     }

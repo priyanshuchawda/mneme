@@ -2,7 +2,7 @@
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
 **Captured:** 2026-08-22 (live ADB dump)  
-**Role:** Primary daily phone for Mneme development and personal use  
+**Role:** Primary daily phone for Retenqo development and personal use  
 **ADB serial:** `1431df87`  
 **ADB command prefix:** `adb -s 1431df87`
 
@@ -112,7 +112,7 @@ Good for Pulse UI and demo — large enough for floating action button + timelin
 Main sensor (community HW DB): Samsung **S5KHM6**.  
 Flash: **Yes** (rear).
 
-**For Mneme:** Camera not needed for MVP except optional “scan document” later; Pulse uses **screenshot**, not camera stream.
+**For Retenqo:** Camera not needed for MVP except optional “scan document” later; Pulse uses **screenshot**, not camera stream.
 
 ---
 
@@ -160,7 +160,7 @@ Flash: **Yes** (rear).
 
 ---
 
-## Security & permissions surface (for Mneme)
+## Security & permissions surface (for Retenqo)
 
 | Capability | On this device |
 |------------|----------------|
@@ -176,7 +176,7 @@ Flash: **Yes** (rear).
 
 ---
 
-## What we **can** do on this phone (Mneme v1)
+## What we **can** do on this phone (Retenqo v1)
 
 ### Build now (recommended)
 
@@ -218,8 +218,7 @@ Flash: **Yes** (rear).
 | 3B+ LLM fluent offline | RAM and CPU bottleneck |
 | ~220 tok/s inference | Flagship NPU only |
 | Heavy VLM (image → rich JSON) | Use OCR + small LLM instead |
-| 24/7 Focus mode @ 90s | Battery + thermal on budget SoC |
-| Office Kit / HackTracker integration | iQOO-specific at event |
+| 24/7 Focus polling | Battery + thermal on budget SoC |
 
 ---
 
@@ -234,10 +233,10 @@ adb shell getprop ro.product.marketname   # → Redmi 13 5G
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 # Logs while testing Pulse / notifications
-adb logcat -s Mneme:* NotificationListener:*
+adb logcat -s Retenqo:* NotificationListener:*
 
 # Grant notification access (manual on phone)
-# Settings → Apps → Special access → Notification access → Mneme
+# Settings → Apps → Special access → Notification access → Retenqo
 ```
 
 ### Project phases on this device
@@ -261,7 +260,7 @@ adb logcat -s Mneme:* NotificationListener:*
 | RAM | 6 GB | 12–16 GB |
 | NPU | None meaningful | Hexagon ~220 tok/s |
 | Android | 16 / HyperOS 3 | OriginOS 6 |
-| Mneme role | **Build UI + capture + logic** | **Final AI + demo + judging** |
+| Retenqo role | **Build UI + capture + logic** | **Final AI + demo + judging** |
 | Office Kit | No | Yes |
 
 ---
@@ -270,7 +269,7 @@ adb logcat -s Mneme:* NotificationListener:*
 
 1. **Pulse implementation** — MediaProjection vs `AccessibilityService` screenshot (MediaProjection is cleaner for demo).  
 2. **LLM runtime** — llama.cpp in NDK vs MLC LLM vs Gemini Nano (Nano may not be on this device).  
-3. **MIUI background kills** — pin app, disable battery saver for Mneme during dev.  
+3. **MIUI background kills** — pin app, disable battery saver for Retenqo during dev.  
 4. **SD card** — store models on `/storage/6538-6239/` if APK size is an issue (~24 GB free).  
 
 ---

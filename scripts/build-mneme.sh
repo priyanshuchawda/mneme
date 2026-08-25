@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build Mneme product APK (arm64, JDK 21).
+# Build Retenqo product APK (arm64, JDK 21).
 # Usage: ./scripts/build-mneme.sh [assembleDebug|assembleRelease]
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

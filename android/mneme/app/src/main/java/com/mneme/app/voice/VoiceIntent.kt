@@ -107,7 +107,7 @@ class AlarmScheduler(private val context: Context) {
 
 class MnemeAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val label = intent.getStringExtra("label") ?: "Mneme reminder"
+        val label = intent.getStringExtra("label") ?: "Retenqo reminder"
         Log.i("MnemeAlarm", "fired: $label")
         DueReminderScheduler.ensureChannel(context)
         val open = PendingIntent.getActivity(
@@ -119,7 +119,7 @@ class MnemeAlarmReceiver : BroadcastReceiver() {
         )
         val notif = NotificationCompat.Builder(context, DueReminderScheduler.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Mneme reminder")
+            .setContentTitle("Retenqo reminder")
             .setContentText(label)
             .setContentIntent(open)
             .setAutoCancel(true)

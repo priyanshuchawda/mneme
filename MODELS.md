@@ -1,8 +1,8 @@
-# On-Device Model Catalog — Mneme
+# On-Device Model Catalog — Retenqo
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
 **Updated:** 2026-08-25  
-**Project:** Mneme — offline personal memory assistant  
+**Project:** Retenqo — offline personal memory assistant  
 **Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO (upcoming, NPU-capable)
 
 Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · **[eval-results/REPORT.md](./eval-results/REPORT.md)** (measured outputs)
@@ -41,14 +41,14 @@ Neither dev phone has Hexagon NPU — CPU/GPU inference now; **iQOO 15 Hexagon +
 
 ---
 
-## ✅ Selected stacks — USE THESE (Mneme v1)
+## ✅ Selected stacks — USE THESE (Retenqo v1)
 
 **Status:** Phone 1 (`1431df87`) = primary build target · Phone 2 (`3e68912fdff2`) = regression + bigger models  
 **Last locked:** 2026-08-22
 
 ### Phone 1 — Redmi 13 5G (6 GB) — primary dev
 
-| # | Mneme job | **Use this model** | Fallback | Runtime | File / quant | On-disk | RAM (run) | Phase |
+| # | Retenqo job | **Use this model** | Fallback | Runtime | File / quant | On-disk | RAM (run) | Phase |
 |---|-----------|-------------------|----------|---------|--------------|---------|-----------|-------|
 | 1 | **Pulse → text** (screenshot) | **ML Kit Text Recognition** | — | Google ML Kit | bundled SDK | 0 | ~0 | **P0 now** |
 | 2 | **Pulse → structured note** (JSON) | **Qwen3.5-2B-Instruct** | Qwen2.5-1.5B-Instruct (LiteRT) | llama.cpp JNI | `Q4_K_M` GGUF | ~1.5 GB | ~2.2 GB | **P0 now** |
@@ -76,7 +76,7 @@ ML Kit → Qwen3.5-2B (extract + Q&A) + Qwen3-Embedding-0.6B + Whisper base + An
 
 ### Phone 2 — Redmi Note 11 Pro+ 5G (8 GB) — secondary / stress test
 
-| # | Mneme job | **Use this model** | Fallback | Runtime | File / quant | On-disk | RAM (run) | Phase |
+| # | Retenqo job | **Use this model** | Fallback | Runtime | File / quant | On-disk | RAM (run) | Phase |
 |---|-----------|-------------------|----------|---------|--------------|---------|-----------|-------|
 | 1 | **Pulse → text** | **ML Kit Text Recognition** | — | ML Kit | bundled | 0 | ~0 | **P0 now** |
 | 2 | **Pulse → structured note** | **Qwen3.5-4B-Instruct** | Qwen3.5-2B-Instruct | llama.cpp JNI | `Q4_K_M` GGUF | ~2.5 GB | ~3.5 GB | **P0–P1** |
@@ -102,7 +102,7 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 
 ### Side-by-side — what we use per phone
 
-| Mneme job | Phone 1 (6 GB) | Phone 2 (8 GB) |
+| Retenqo job | Phone 1 (6 GB) | Phone 2 (8 GB) |
 |-----------|----------------|----------------|
 | Pulse OCR | ML Kit | ML Kit |
 | Note extract + Q&A LLM | **Qwen3.5-2B** | **Qwen3.5-4B** |
@@ -139,7 +139,7 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 
 ## 🔗 Hugging Face links — all models we use
 
-**Author:** Priyanshu Chawda · **For:** Mneme v1 · **Quant for phone:** prefer **Q4_K_M** GGUF (llama.cpp) unless noted
+**Author:** Priyanshu Chawda · **For:** Retenqo v1 · **Quant for phone:** prefer **Q4_K_M** GGUF (llama.cpp) unless noted
 
 ### Phone 1 — Redmi 13 5G (6 GB) — download these
 
@@ -223,8 +223,8 @@ huggingface-cli download TheStageAI/Qwen3.5-4B-GGUF Qwen3.5-4B-M-TS-Q4_K_M.gguf 
 huggingface-cli download openbmb/MiniCPM-V-4.6-gguf --local-dir ./models/phone2/minicpm
 
 # Push to phone
-adb -s 1431df87 push ./models/phone1/ /sdcard/Mneme/models/
-adb -s 3e68912fdff2 push ./models/phone2/ /sdcard/Mneme/models/
+adb -s 1431df87 push ./models/phone1/ /sdcard/Retenqo/models/
+adb -s 3e68912fdff2 push ./models/phone2/ /sdcard/Retenqo/models/
 ```
 
 **Test on laptop first (Ollama):**
@@ -363,7 +363,7 @@ Features: thinking mode, native function calling, mobile QAT (`wNa8o8`), co-desi
 
 ## 2. Vision / Pulse — screenshot → structured note
 
-| Tier | Model | Size (Q4) | Phone 1 | Phone 2 | Best for Mneme |
+| Tier | Model | Size (Q4) | Phone 1 | Phone 2 | Best for Retenqo |
 |------|--------|-----------|---------|---------|----------------|
 | MVP | **ML Kit Text Recognition** | — | ✅ | ✅ | Fastest Pulse; no LLM vision |
 | 🔥 NEW | **Qwen3.5-2B** (native MM) | ~1.5 GB | ✅ | ✅ | One model: Pulse + Q&A |
@@ -437,7 +437,7 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 | **Android SpeechRecognizer** | 0 | Online | Fast | Dev only — not for airplane demo |
 | **Gemma 4 E2B audio** | bundled | — | — | iQOO + Google stack later |
 
-**Note:** Live streaming Whisper on mobile CPU is often 5× slower than realtime — use **tap-to-talk batch** for Mneme.
+**Note:** Live streaming Whisper on mobile CPU is often 5× slower than realtime — use **tap-to-talk batch** for Retenqo.
 
 **Models:** [whisper.cpp HuggingFace](https://huggingface.co/ggerganov/whisper.cpp)
 
@@ -455,7 +455,7 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 
 ## 6. Cool / experimental 2026 models
 
-| Model | Params | Size | Why cool | Mneme use case |
+| Model | Params | Size | Why cool | Retenqo use case |
 |-------|--------|------|----------|----------------|
 | **LFM2.5-230M / 350M** | 230M–350M | <0.5 GB | QAD 4-bit, Raspberry Pi class | Intent router |
 | **LFM2.5-1.2B-Thinking** | 1.2B | ~0.9 GB | 70+ tok/s phone CPU | Fast reasoning |
@@ -464,7 +464,7 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 | **Jamba Reasoning 3B** | 3B | ~2 GB | Mamba+Transformer hybrid | Long context Q&A |
 | **ZAYA1-8B MoE** | 8B (0.76B active) | ~4.8 GB Q4 | MoE speed trick | iQOO experiment |
 | **DiffusionGemma** | 25B (3.8B active) | large | Parallel decode | Research only |
-| **North Mini Code 30B** | 30B (3B active) | ~19 GB | Coding MoE | Not for Mneme v1 |
+| **North Mini Code 30B** | 30B (3B active) | ~19 GB | Coding MoE | Not for Retenqo v1 |
 | **Qwen3.6-35B-A3B** | 35B (3B active) | ~22 GB | 1M context MoE | Server fine-tune only |
 | **Bonsai 27B** | 27B binary | ~3.9 GB | Extreme quant research | Not practical v1 |
 | **MiniCPM5-1B** | 1B | ~0.5 GB | Text-only ultra small | Notification summary |
@@ -491,7 +491,7 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 
 ---
 
-## 8. Recommended stacks (Mneme v1)
+## 8. Recommended stacks (Retenqo v1)
 
 > **Canonical stacks:** see **[Selected stacks — USE THESE](#-selected-stacks--use-these-mneme-v1)** at the top of this doc.
 
@@ -599,4 +599,4 @@ ollama pull embeddinggemma
 
 ---
 
-*Catalog compiled from public sources (Google, Alibaba/Qwen, Mistral, Hugging Face, Liquid AI, OpenBMB, community benchmarks) for Mneme product planning. Model availability and GGUF support change frequently — verify on Hugging Face before locking APK downloads.*
+*Catalog compiled from public sources (Google, Alibaba/Qwen, Mistral, Hugging Face, Liquid AI, OpenBMB, community benchmarks) for Retenqo product planning. Model availability and GGUF support change frequently — verify on Hugging Face before locking APK downloads.*

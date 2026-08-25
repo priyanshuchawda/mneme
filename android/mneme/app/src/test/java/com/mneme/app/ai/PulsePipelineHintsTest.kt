@@ -6,10 +6,15 @@ import org.junit.Test
 
 class PulsePipelineHintsTest {
     @Test
-    fun skipsMnemeSelfUi() {
+    fun skipsRetenqoSelfUi() {
         assertTrue(
             PulsePipelineHints.shouldSkipIngest(
                 "Your private memory stays on this phone. Search memory. Pulse.",
+            ),
+        )
+        assertTrue(
+            PulsePipelineHints.looksLikeSelfUi(
+                "Retenqo Retenqo pulse capture status",
             ),
         )
     }

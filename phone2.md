@@ -2,10 +2,10 @@
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
 **Captured:** 2026-08-22 (live ADB dump)  
-**Role:** Secondary test device for Mneme (after storage cleanup)  
+**Role:** Secondary test device for Retenqo (after storage cleanup)  
 **ADB serial:** `3e68912fdff2`  
 **ADB command prefix:** `adb -s 3e68912fdff2`  
-**Storage note:** Cleared / available for Mneme testing.
+**Storage note:** Cleared / available for Retenqo testing.
 
 **Phone 1 (primary dev):** [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) — Redmi 13 5G (`1431df87`)
 
@@ -111,7 +111,7 @@ Better panel than Phone 1 (AMOLED + HDR vs IPS LCD).
 Retail setup: **108 MP** main + **8 MP** ultrawide + **2 MP** macro/depth, **16 MP** front.  
 Flash: **Yes** (rear).
 
-**For Mneme:** Same as Phone 1 — Pulse uses **screenshot**, not camera.
+**For Retenqo:** Same as Phone 1 — Pulse uses **screenshot**, not camera.
 
 ---
 
@@ -160,7 +160,7 @@ Flash: **Yes** (rear).
 
 ---
 
-## Security & permissions (Mneme)
+## Security & permissions (Retenqo)
 
 Same Android capability surface as Phone 1:
 
@@ -180,7 +180,7 @@ Same Android capability surface as Phone 1:
 ### Good for
 
 1. **Second-device testing** — different screen size, Android 13 behavior, MIUI quirks  
-2. **Same Mneme app** — install debug APK, test Pulse, notifications, timeline  
+2. **Same Retenqo app** — install debug APK, test Pulse, notifications, timeline  
 3. **GPU-heavy UI** — Adreno 619 handles Compose animations well  
 4. **8 GB RAM** — slightly more headroom for **1B LLM** experiments than Phone 1  
 5. **Real gyro / sensors** — if you add motion or orientation features later  
@@ -210,7 +210,7 @@ Same Android capability surface as Phone 1:
 | Sensors | Virtual gyro | **Real gyro** |
 | Battery | 5030 mAh | 4500 mAh |
 | Storage (assumed) | ~35 GB free now | Cleared before use |
-| Mneme AI stack | Prototype shell | Same — not NPU target |
+| Retenqo AI stack | Prototype shell | Same — not NPU target |
 
 **Recommendation:** Build on **Phone 1**, flash builds to **Phone 2** for compatibility testing on Android 13 + 8 GB.
 
@@ -228,7 +228,7 @@ adb shell getprop ro.product.marketname   # → Redmi Note 11 Pro+ 5G
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 # Compare behavior
-adb logcat -s Mneme:*
+adb logcat -s Retenqo:*
 ```
 
 When both phones are plugged in:
