@@ -6,7 +6,7 @@ set -euo pipefail
 
 AUTHOR="Priyanshu Chawda"
 GITHUB_USER="priyanshuchawda"
-DEFAULT_REPO_NAME="mneme-iqoo-hackathon"
+DEFAULT_REPO_NAME="mneme"
 REPO_NAME="${1:-$DEFAULT_REPO_NAME}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"

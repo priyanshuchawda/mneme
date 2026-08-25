@@ -1,11 +1,11 @@
-# On-Device Model Catalog — Mneme (2026)
+# On-Device Model Catalog — Mneme
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
-**Updated:** 2026-08-23 (Phone 1 default embed → Qwen3-Embedding-0.6B)  
-**Project:** Mneme — offline personal memory assistant (iQOO Hackathon 2026)  
-**Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO 15 loaner (event)
+**Updated:** 2026-08-25  
+**Project:** Mneme — offline personal memory assistant  
+**Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO (upcoming, NPU-capable)
 
-Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md) · **[eval-results/REPORT.md](./eval-results/REPORT.md)** (measured outputs)
+Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · **[eval-results/REPORT.md](./eval-results/REPORT.md)** (measured outputs)
 
 ---
 
@@ -35,7 +35,7 @@ Voice → Whisper (batch STT) → LLM + RAG → answer + citation + tools (alarm
 
 **Runtime options:** `llama.cpp` (GGUF, Q4_K_M) · **LiteRT / MediaPipe** (Google) · **ONNX Runtime Mobile**
 
-Neither dev phone has Hexagon NPU — CPU/GPU inference now; **iQOO 15 Hexagon + LiteRT-QNN** at hackathon.
+Neither dev phone has Hexagon NPU — CPU/GPU inference now; **iQOO 15 Hexagon + LiteRT-QNN** on iQOO.
 
 > **Rule for both phones:** Load **one large model at a time** (LLM **or** VLM). Embeddings + Whisper can stay resident. Target **≤3.6 GB** model RAM on Phone 1, **≤5 GB** on Phone 2.
 
@@ -171,7 +171,7 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 
 ---
 
-### iQOO 15 — hackathon (event)
+### iQOO — upcoming daily driver
 
 | Role | Model | Hugging Face link |
 |------|--------|-------------------|
@@ -321,7 +321,7 @@ ollama pull embeddinggemma
 | 🧪 | **BitNet b1.58 2B** | ~1.1 GB | ✅ | ✅ | Ternary, CPU-first |
 | 🧪 | **Granite 4.1 3B** | ~2 GB | ⚠️ | ✅ | IBM, strong tool calling |
 | 🧪 | **Danube 3 500M** | ~0.4 GB | ✅ | ✅ | Ultra-tiny routing |
-| ❌ iQOO | **Qwen3.5-9B**, **Ministral 3 8B** | 5–6 GB+ | — | — | Hackathon demo tier |
+| ❌ iQOO | **Qwen3.5-9B**, **Ministral 3 8B** | 5–6 GB+ | — | — | Larger-phone tier |
 
 ### Qwen 3.5 Small — detail (Mar 2026)
 
@@ -495,7 +495,7 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 
 > **Canonical stacks:** see **[Selected stacks — USE THESE](#-selected-stacks--use-these-mneme-v1)** at the top of this doc.
 
-### iQOO 15 — hackathon demo (event only)
+### iQOO — larger models (when RAM allows)
 
 ```
 Hero LLM:   Qwen3.5-9B  OR  Gemma 4 E4B on Hexagon (LiteRT-QNN)
@@ -581,7 +581,7 @@ ollama pull embeddinggemma
 | Best Google / iQOO narrative? | **Gemma 4 E2B/E4B** + **EmbeddingGemma** on Hexagon |
 | Phone 2 VLM (P1)? | **MiniCPM-V 4.6** (defer if OCR path holds) |
 | Phone 2 screen agent (P2)? | **Qwen3-VL-2B** |
-| Hackathon hero model? | Start **Qwen3.5-4B**; stretch **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
+| Primary model? | Start **Qwen3.5-4B**; stretch **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
 | Full catalog below? | Sections 1–7, 9–13 |
 
 ---
@@ -599,4 +599,4 @@ ollama pull embeddinggemma
 
 ---
 
-*Catalog compiled from public sources (Google, Alibaba/Qwen, Mistral, Hugging Face, Liquid AI, OpenBMB, community benchmarks) for Mneme hackathon planning. Model availability and GGUF support change frequently — verify on Hugging Face before locking APK downloads.*
+*Catalog compiled from public sources (Google, Alibaba/Qwen, Mistral, Hugging Face, Liquid AI, OpenBMB, community benchmarks) for Mneme product planning. Model availability and GGUF support change frequently — verify on Hugging Face before locking APK downloads.*

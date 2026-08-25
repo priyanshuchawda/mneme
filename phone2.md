@@ -5,7 +5,7 @@
 **Role:** Secondary test device for Mneme (after storage cleanup)  
 **ADB serial:** `3e68912fdff2`  
 **ADB command prefix:** `adb -s 3e68912fdff2`  
-**Storage note:** Assumed cleared / not a blocker for hackathon prep.
+**Storage note:** Cleared / available for Mneme testing.
 
 **Phone 1 (primary dev):** [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) — Redmi 13 5G (`1431df87`)
 

@@ -1,64 +1,69 @@
-# Mneme — offline personal memory
+# Mneme
 
-Private notes from your phone screen, notifications, and voice — answered offline with citations. Your context never leaves the device.
+Offline personal memory for your phone. Capture what matters from screens, WhatsApp, and files — then ask in plain text. Everything stays on-device.
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda)
 
-## Daily product (this is the goal)
+## Daily loop (text-first)
 
 ```
-Pulse / notify / share → note in Room
-Ask (text or voice) → RAG + Qwen → cite source → optional alarm
+Pulse (screen) / WA notif / WA media → structured note + embed
+Ask / Due → answer only from your notes (or refuse)
+Due dates → morning reminder notification
 ```
 
-Validated on-device stack (Phone 1 Redmi 13 5G / Snapdragon arm64):
+### On-device stack (Phone 1 — Redmi 13 5G)
 
-| Job | Model / API |
-|-----|-------------|
+| Job | Engine |
+|-----|--------|
 | OCR | ML Kit |
-| Extract + Q&A | Qwen3.5-2B (llama.cpp JNI) |
-| Embeddings | Qwen3-Embedding-0.6B (GGUF Q8) |
-| STT | Whisper base (whisper.cpp JNI) |
-| TTS / alarms | Android system |
+| Extract + Ask | Qwen3.5-2B (llama.cpp) |
+| Embeddings | Qwen3-Embedding-0.6B |
+| Due reminders | AlarmManager + notifications |
+
+Voice (Whisper) exists but is optional — text capture and Ask are the product focus.
 
 ## App
 
 ```
-android/mneme/          # product app (Compose + Room + Pulse)
-android/mneme-test/     # model lab harness
+android/mneme/       # product app
+android/mneme-test/  # model lab harness
 ```
 
-### Build & install (Phone 1)
+### Build & install
 
 ```bash
 ./scripts/build-mneme.sh
-./scripts/install-mneme.sh          # default serial 1431df87
-./scripts/smoke-mneme-ui.sh
+./scripts/install-mneme.sh
+./scripts/test-mneme.sh
 ```
 
-JDK **21** is pinned for Gradle (`~/.local/jdk-21`). App bytecode stays Java **17**.
+JDK **21** for Gradle (`~/.local/jdk-21`). App bytecode Java **17**.
 
-### GitHub workflow
+### GitHub
 
 ```bash
 git checkout -b feature/your-change
-# ... edit, stage ...
-./scripts/commit-and-pr.sh "What changed and why" "PR title"
-# review, then:
-gh pr merge --squash
+# stage product files …
+./scripts/commit-and-pr.sh "Why this change" "PR title"
+gh pr merge <n> --merge
 ```
 
-Issues: https://github.com/priyanshuchawda/mneme-iqoo-hackathon/issues
+Repo: https://github.com/priyanshuchawda/mneme
 
 ## Docs
 
-- [idea.md](./idea.md) — product spec  
+- [idea.md](./idea.md) — product vision  
 - [MODELS.md](./MODELS.md) — model catalog  
-- [eval-results/REPORT.md](./eval-results/REPORT.md) — Fedora eval: each model’s outputs + best stack  
-- [PHONE1_TESTING.md](./PHONE1_TESTING.md) — Phone 1 lab notes  
-- [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md)
+- [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) — Phone 1 notes  
+- [phone2.md](./phone2.md) — second device notes  
+- [eval-results/REPORT.md](./eval-results/REPORT.md) — measured evals  
 
 ## Status
 
-- Model JNI validation: **PASS** (OCR, LLM, Whisper, Embed)  
-- Product scaffold: Pulse → OCR → Room timeline (in progress on `feature/mneme-product-scaffold`)
+- Pulse → OCR → note → embed  
+- WhatsApp media watcher (battery-aware)  
+- WhatsApp notification text ingest  
+- Ask with refuse / citation guard  
+- Due digest + morning reminders  
+- Unit tests: `./scripts/test-mneme.sh`
