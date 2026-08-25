@@ -64,7 +64,11 @@ object NoteExtractor {
     }
 
     fun fallback(ocrText: String): ExtractedNote {
-        val title = ocrText.lineSequence().firstOrNull { it.isNotBlank() }?.take(80) ?: "Screen note"
+        val title = ocrText.lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.isNotBlank() && !it.matches(Regex("""^\d{1,2}:\d{2}$""")) }
+            ?.take(80)
+            ?: "Screen note"
         val body = ocrText.trim()
         return ExtractedNote(
             title = title,
