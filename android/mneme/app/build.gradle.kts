@@ -64,6 +64,14 @@ android {
     }
 }
 
+configurations.all {
+    resolutionStrategy {
+        // Match litertlm-android 0.16.x (SendChannel.close$default); avoid 1.10.x crash
+        force(libs.kotlinx.coroutines.core.get().toString())
+        force(libs.kotlinx.coroutines.android.get().toString())
+    }
+}
+
 dependencies {
     implementation(project(":llama-lib"))
     implementation(project(":whisper-lib"))
@@ -76,6 +84,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.material)
     implementation(libs.mlkit.text.recognition)
     implementation(libs.tensorflow.lite)
