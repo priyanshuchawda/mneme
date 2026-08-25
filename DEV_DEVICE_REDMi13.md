@@ -2,7 +2,7 @@
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
 **Captured:** 2026-08-22 (live ADB dump)  
-**Role:** Primary prototype phone for Mneme before iQOO 15 loaner at hackathon  
+**Role:** Primary daily phone for Mneme development and personal use  
 **ADB serial:** `1431df87`  
 **ADB command prefix:** `adb -s 1431df87`
 
@@ -197,9 +197,9 @@ Flash: **Yes** (rear).
 |-------|-------------------|
 | OCR | **ML Kit Text Recognition** (on-device) or Google ML Kit |
 | Screen understanding | OCR + **rules** first; optional **Gemma 1B** / **Qwen2 0.5B** via llama.cpp JNI |
-| Embeddings | Small model (~23M–100M) or TF-IDF fallback for hackathon demo |
+| Embeddings | Small model (~23M–100M) or TF-IDF fallback for device demo |
 | Q&A LLM | **≤1B INT4** on CPU; expect **~5–15 tok/s** — good for demo, not production speed |
-| Cloud fallback (dev only) | Gemini API from laptop during build week — **not** for final hackathon demo |
+| Cloud fallback (dev only) | Gemini API from laptop during build week — **not** for final device demo |
 
 ### Demo that still works here
 
@@ -253,7 +253,7 @@ adb logcat -s Mneme:* NotificationListener:*
 
 ---
 
-## Comparison: this phone vs iQOO 15 (hackathon target)
+## Comparison: this phone vs iQOO (upcoming)
 
 | | Redmi 13 5G (this) | iQOO 15 (loaner) |
 |--|-------------------|------------------|

@@ -1,16 +1,15 @@
 # Mneme — Offline Personal Memory Assistant
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
-**Event:** iQOO Hackathon 2026 · City Battles  
-**Track target:** 04 Productivity (also fits 06 Developer Tools)  
+**Product:** Private on-device memory for daily phone use  
 **Language:** English (v1)  
-**Status:** Ideation — device implementation to be refined on Redmi 13 5G, final NPU stack on iQOO 15 loaner  
+**Devices:** Phone 1 Redmi 13 5G (daily) · Phone 2 Note 11 Pro+ · iQOO (upcoming)  
 
 ---
 
 ## One-line pitch
 
-**Mneme** is a personal assistant that **captures important moments** from your phone (notifications, clipboard, on-demand screen pulses), **turns them into private notes**, and lets you **ask by voice offline** — it answers from what it saved, cites the source, and **sets alarms/reminders** like Assistant, but **your context never leaves the device**.
+**Mneme** captures important moments from your phone (notifications, WhatsApp media, on-demand screen pulses), turns them into **private notes**, and lets you **ask in text offline** — it answers from what it saved, cites the source, and reminds you about due dates. **Your context never leaves the device.**
 
 ---
 
@@ -42,7 +41,7 @@
 | Offline brain | Limited | **Full Q&A on iQOO NPU** |
 | Cross-app personal search | Weak | **RAG over captured notes** |
 | Privacy demo | Hard | **Airplane mode + visible timeline** |
-| Hackathon NPU story | N/A | **Multi-model on Hexagon NPU** |
+| iQOO NPU story | N/A | **Multi-model on Hexagon NPU** |
 
 **Unique wedge:** *Ephemeral sight, permanent knowledge* — process pixels, don’t hoard pixels.
 
@@ -199,23 +198,22 @@ LLM outputs structured JSON → app executes tool → confirms by voice.
 
 ---
 
-## Dev device vs event device
+## Dev phones
 
-| | Redmi 13 5G (prototype) | iQOO 15 (hackathon) |
-|--|-------------------------|---------------------|
-| ADB serial | `1431df87` | Loaner at check-in |
-| RAM | 6 GB | 12–16 GB |
-| Build UI, Pulse, DB, tools | ✅ | ✅ |
-| Local LLM | Gemma 1B slow or cloud fallback | NPU 1B–3B |
-| Embeddings RAG | Keyword first → embed later | Full NPU RAG |
-| Airplane demo | Partial | Full |
-| Office Kit / HackTracker | No | Yes |
+| | Redmi 13 5G (daily now) | iQOO (upcoming) |
+|--|-------------------------|-----------------|
+| ADB serial | `1431df87` | TBD |
+| RAM | 6 GB | 12–16 GB (typical) |
+| Build UI, Pulse, DB | ✅ | ✅ |
+| Local LLM | Qwen3.5-2B daily | Larger Qwen / NPU later |
+| Embeddings RAG | Qwen3-Embedding-0.6B | Same + headroom |
+| Airplane / offline | ✅ | ✅ |
 
 **Strategy:** One codebase, pluggable `AiBackend` — prototype on Redmi, NPU on iQOO.
 
 ---
 
-## MVP scope (30-hour hackathon)
+## MVP scope (MVP scope)
 
 ### Must ship
 - [ ] Timeline UI + SQLite notes  
@@ -314,17 +312,16 @@ mneme/
 **Author:** Priyanshu Chawda (`priyanshuchawda`)  
 **Email:** hellopriyanshu4@gmail.com  
 
-This document and associated code are authored for the iQOO Hackathon 2026 project.  
+This document and associated code are authored for the Mneme project.  
 Implementation on physical devices is in progress — logic and scope may evolve.
 
 ---
 
 ## References
 
-- [iQOO Hackathon 2026](https://iqoo.reskilll.com/)  
-- [Office Kit download](https://pc.vivoglobal.com)  
-- [MediaPipe LLM Inference (Android)](https://developers.google.com/edge/mediapipe/solutions/genai/llm_inference/android)  
-- [Drishti (reference project)](https://github.com/LAVYA255/Drishti)  
+- [MediaPipe LLM Inference (Android)](https://developers.google.com/edge/mediapipe/solutions/genai/llm_inference/android)
+- [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- [Qwen3.5](https://huggingface.co/Qwen)
 
 ---
 

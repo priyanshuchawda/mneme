@@ -9,7 +9,7 @@ cd "$ROOT"
 
 AUTHOR="Priyanshu Chawda"
 GITHUB_USER="priyanshuchawda"
-REPO_NAME="mneme-iqoo-hackathon"
+REPO_NAME="mneme"
 
 require() { command -v "$1" >/dev/null || { echo "need $1"; exit 1; }; }
 require git
