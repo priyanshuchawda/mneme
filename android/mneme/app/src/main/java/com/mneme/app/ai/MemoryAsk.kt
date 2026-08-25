@@ -33,16 +33,18 @@ class MemoryAsk(
         }.joinToString("\n\n")
 
         val prompt = """
-            Answer ONLY using the CONTEXT notes. Cite note numbers like [1].
-            If missing, say: I don't have that in your memory.
+            Answer ONLY using the CONTEXT notes. Always cite note numbers like [1].
+            If missing, say exactly: I don't have that in your memory.
+            Be one short sentence. No thinking.
             Question: $q
 
             CONTEXT:
             $context
+            /no_think
         """.trimIndent()
 
         val answer = try {
-            llm.complete(prompt, maxTokens = 128)
+            llm.complete(prompt, maxTokens = 96)
                 .ifBlank { "I don't have that in your memory." }
         } catch (_: Exception) {
             // Offline / OOM: still show retrieved notes as citations
