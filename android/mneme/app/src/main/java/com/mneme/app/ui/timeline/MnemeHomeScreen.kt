@@ -142,6 +142,11 @@ fun MnemeHomeScreen(
                 )
                 if (ui.tab == MnemeTab.Memory) {
                     TextButton(
+                        onClick = viewModel::openNotifAccessSettings,
+                    ) {
+                        Text(if (ui.notifAccess) "Notifs on" else "Enable notifs")
+                    }
+                    TextButton(
                         onClick = viewModel::scanWhatsAppMedia,
                         enabled = !ui.mediaBusy && !ui.pulsing,
                     ) {

@@ -1,0 +1,68 @@
+package com.mneme.app.notif
+
+import android.app.Notification
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import android.service.notification.StatusBarNotification
+import android.util.Log
+
+/**
+ * Lightweight WhatsApp notification watcher.
+ * Extracts text → queue → WorkManager (LLM only when power gates allow).
+ */
+class MnemeNotificationListener : NotificationListenerService() {
+
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (sbn == null || sbn.isOngoing) return
+        if (!NotifTextTriage.isWhatsApp(sbn.packageName)) return
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+
+        val extras = sbn.notification.extras ?: return
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        val text = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+            ?: extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            ?: messagingLastLine(extras)
+
+        val candidate = NotifTextTriage.candidate(title, text) ?: return
+        Log.i(TAG, "queue: ${candidate.take(80)}")
+        NotifIngestQueue.offer(applicationContext, candidate)
+        NotifIngestWorker.enqueueSoon(applicationContext)
+    }
+
+    private fun messagingLastLine(extras: android.os.Bundle): String? {
+        return try {
+            @Suppress("DEPRECATION")
+            val msgs = extras.getParcelableArray(Notification.EXTRA_MESSAGES) ?: return null
+            if (msgs.isEmpty()) return null
+            val last = msgs.last() as? android.os.Bundle ?: return null
+            last.getCharSequence("text")?.toString()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    companion object {
+        private const val TAG = "MnemeNotifListener"
+
+        fun isEnabled(context: Context): Boolean {
+            val cn = ComponentName(context, MnemeNotificationListener::class.java)
+            val flat = Settings.Secure.getString(
+                context.contentResolver,
+                "enabled_notification_listeners",
+            ) ?: return false
+            return flat.split(':').any {
+                ComponentName.unflattenFromString(it)?.flattenToString() == cn.flattenToString()
+            }
+        }
+
+        fun openSettings(context: Context) {
+            context.startActivity(
+                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
+    }
+}
