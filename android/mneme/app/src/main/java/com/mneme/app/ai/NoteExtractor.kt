@@ -36,18 +36,19 @@ object NoteExtractor {
         val prompt = """
             Extract ONE personal memory card as JSON only (no markdown, no thinking).
             Keys:
-            - title (short, searchable)
+            - title (short, searchable — prefer group/person/topic; NEVER a clock time alone like "18:54")
             - kind (meeting|deadline|receipt|chat|reminder|other)
             - people (array of names)
             - chat_with (person or group name, or null)
-            - body (2-4 cleaned sentences: who / what / why — no OCR junk, no UI chrome)
+            - body (2-4 cleaned sentences: who / what / why — no OCR junk, no UI chrome, no status bar times)
             - when_text (e.g. "9:30" or "Thu 4pm" or null — times without a calendar date)
             - due_date (YYYY-MM-DD only if a real calendar date is present; else null)
             - tags (2-5 keywords)
-            - important (true for meet/deadline/money; false for casual chat)
+            - important (true for meet/deadline/money/notice/exam; false for casual chat)
             - embed_text (one clear English paragraph for search: names + facts + times)
             Today is $today. If a date has no year, use ${today.year}.
             Do NOT invent a due_date from clock times like 13:49 or 9:30 alone.
+            If the text is mostly an app's own UI (settings, home screen chrome), set important=false.
             Text:
             ${ocrText.take(1400)}
             /no_think
@@ -210,12 +211,27 @@ object NoteExtractor {
 /** Shared importance heuristics (also used by Pulse filter). */
 object PulsePipelineHints {
     private val SAVE_HINTS = Regex(
-        """(?i)(due|deadline|submit|exam|chapter|meeting|meet|homework|reminder|tomorrow|aug|sept|oct|nov|dec|jan|feb|mar|apr|may|jun|jul|\d{1,2}[:/.-]\d{1,2}|@|\.com|http|₹|rs\.?\s*\d|paid|uber|receipt)""",
+        """(?i)(due|deadline|submit|exam|chapter|meeting|meet|homework|reminder|tomorrow|notice|audition|festival|lab|cie|₹|rs\.?\s*\d|paid|uber|receipt|aug|sept|oct|nov|dec|jan|feb|mar|apr|may|jun|jul|\d{1,2}[:/.-]\d{1,2}|@|\.com|http)""",
     )
+
+    /** Mneme / launcher chrome — never save as a memory. */
+    private val SELF_UI = Regex(
+        """(?i)(your private memory stays|search memory|ask only from what you saved|hold mic to ask|ask memory|cited notes|answered from)""",
+    )
+
+    fun looksLikeSelfUi(text: String): Boolean {
+        val t = text.trim()
+        if (t.isEmpty()) return false
+        val hits = SELF_UI.findAll(t).count()
+        val lower = t.lowercase()
+        val mnemeHits = Regex("""(?i)\bmneme\b""").findAll(t).count()
+        return hits >= 1 || (mnemeHits >= 2 && "pulse" in lower)
+    }
 
     fun looksImportant(text: String): Boolean {
         val t = text.trim()
         if (t.length < 10) return false
+        if (looksLikeSelfUi(t)) return false
         val lower = t.lowercase()
         if (lower in setOf("ok", "okay", "thanks", "thank you", "lol", "haha", "yes", "no")) return false
         return SAVE_HINTS.containsMatchIn(t) || t.length >= 40

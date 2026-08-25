@@ -46,6 +46,9 @@ class PulsePipeline(
 
             try {
                 val text = recognize(bitmap).trim()
+                if (PulsePipelineHints.looksLikeSelfUi(text)) {
+                    return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
+                }
                 if (!shouldSave(text)) {
                     return PulseResult(null, "Nothing important on screen", skippedDuplicate = false)
                 }
@@ -56,8 +59,15 @@ class PulsePipeline(
                     NoteExtractor.fallback(text)
                 }
 
+                if (PulsePipelineHints.looksLikeSelfUi("${extracted.title}\n${extracted.body}")) {
+                    return PulseResult(null, "Skipped Mneme UI", skippedDuplicate = false)
+                }
                 if (!extracted.important && extracted.kind == "chat") {
                     return PulseResult(null, "Skipped casual chat", skippedDuplicate = false)
+                }
+                // Clock-only titles are OCR junk
+                if (extracted.title.matches(Regex("""^\d{1,2}:\d{2}$"""))) {
+                    return PulseResult(null, "Skipped junk title", skippedDuplicate = false)
                 }
 
                 val id = notes.saveIfNew(
