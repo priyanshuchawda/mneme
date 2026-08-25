@@ -46,7 +46,17 @@ class MainActivity : ComponentActivity() {
     private val capture by lazy { ScreenCapture(this) }
 
     private val viewModel: MnemeViewModel by viewModels {
-        MnemeViewModel.factory(notes, pulse, media, asker, llm, whisper, tts, alarms)
+        MnemeViewModel.factory(
+            application,
+            notes,
+            pulse,
+            media,
+            asker,
+            llm,
+            whisper,
+            tts,
+            alarms,
+        )
     }
 
     private val micPermissionLauncher =

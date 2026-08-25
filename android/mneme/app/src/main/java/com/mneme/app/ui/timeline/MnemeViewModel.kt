@@ -1,5 +1,7 @@
 package com.mneme.app.ui.timeline
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,6 +11,7 @@ import com.mneme.app.ai.MemoryAsk
 import com.mneme.app.data.NoteEntity
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.media.MediaIngestPipeline
+import com.mneme.app.media.MnemePowerGates
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
 import com.mneme.app.voice.AlarmScheduler
@@ -42,6 +45,7 @@ data class MnemeUiState(
 )
 
 class MnemeViewModel(
+    app: Application,
     private val notes: NoteRepository,
     private val pulse: PulsePipeline,
     private val media: MediaIngestPipeline,
@@ -50,7 +54,7 @@ class MnemeViewModel(
     private val whisper: WhisperBridge,
     private val tts: TtsSpeaker,
     private val alarms: AlarmScheduler,
-) : ViewModel() {
+) : AndroidViewModel(app) {
     val timeline = notes.observeNotes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -202,9 +206,14 @@ class MnemeViewModel(
     fun scanWhatsAppMedia() {
         if (_ui.value.mediaBusy || _ui.value.pulsing) return
         viewModelScope.launch {
+            val gate = MnemePowerGates.canRunHeavyWork(getApplication(), userInitiated = true)
+            if (!gate.ok && gate.reason.contains("RAM", ignoreCase = true)) {
+                _ui.value = _ui.value.copy(status = gate.reason)
+                return@launch
+            }
             _ui.value = _ui.value.copy(mediaBusy = true, status = "Scanning WhatsApp media…")
             val result = try {
-                media.scanWhatsAppRecent(limit = 6)
+                media.scanWhatsAppRecent(limit = 4)
             } catch (e: Exception) {
                 _ui.value = _ui.value.copy(
                     mediaBusy = false,
@@ -228,6 +237,7 @@ class MnemeViewModel(
 
     companion object {
         fun factory(
+            app: Application,
             notes: NoteRepository,
             pulse: PulsePipeline,
             media: MediaIngestPipeline,
@@ -239,7 +249,7 @@ class MnemeViewModel(
         ) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                MnemeViewModel(notes, pulse, media, asker, llm, whisper, tts, alarms) as T
+                MnemeViewModel(app, notes, pulse, media, asker, llm, whisper, tts, alarms) as T
         }
     }
 }
