@@ -12,18 +12,23 @@ object NotifIngestQueue {
     private const val MAX = 12
 
     @Synchronized
-    fun offer(context: Context, text: String) {
+    fun offer(context: Context, source: String, text: String) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val next = NotifQueueLogic.offer(prefs.getString(KEY, "[]") ?: "[]", text, MAX)
+        val next = NotifQueueLogic.offer(
+            prefs.getString(KEY, "[]") ?: "[]",
+            source,
+            text,
+            MAX,
+        )
         prefs.edit().putString(KEY, next).apply()
     }
 
     @Synchronized
-    fun drain(context: Context, limit: Int): List<String> {
+    fun drain(context: Context, limit: Int): List<Pair<String, String>> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val (batch, rest) = NotifQueueLogic.drain(prefs.getString(KEY, "[]") ?: "[]", limit)
         prefs.edit().putString(KEY, rest).apply()
-        return batch
+        return batch.map { NotifQueueLogic.decode(it) }
     }
 
     @Synchronized
