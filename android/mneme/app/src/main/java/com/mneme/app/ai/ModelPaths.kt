@@ -8,7 +8,11 @@ import java.io.File
  * blocks random /sdcard reads for non-media types like .gguf / .bin).
  */
 object ModelPaths {
-    private const val SHARED_ROOT = "/sdcard/Mneme/models/phone1"
+    /** Prefer new brand path; keep legacy Mneme path so existing phone models still resolve. */
+    private val SHARED_ROOTS = listOf(
+        "/sdcard/Retenqo/models/phone1",
+        "/sdcard/Mneme/models/phone1",
+    )
 
     fun llmGguf(context: Context): File =
         resolve(context, "llm", "Qwen3.5-2B-M-TS-Q4_K_M.gguf")
@@ -36,8 +40,10 @@ object ModelPaths {
     private fun resolve(context: Context, subdir: String, name: String): File {
         val private = File(context.getExternalFilesDir("models"), "$subdir/$name")
         if (private.isFile && private.canRead() && private.length() > 1_000_000L) return private
-        val shared = File("$SHARED_ROOT/$subdir/$name")
-        if (shared.isFile && shared.canRead()) return shared
+        for (root in SHARED_ROOTS) {
+            val shared = File("$root/$subdir/$name")
+            if (shared.isFile && shared.canRead()) return shared
+        }
         return private
     }
 
@@ -51,9 +57,11 @@ object ModelPaths {
         if (preferred.isFile && preferred.canRead() && preferred.length() > minBytes) return preferred
 
         val private = File(context.getExternalFilesDir("models"), "$subdir/$name")
-        val shared = File("$SHARED_ROOT/$subdir/$name")
-        require(shared.isFile) {
-            "Model missing. Push to $SHARED_ROOT/$subdir/$name or ${private.absolutePath}"
+        val shared = SHARED_ROOTS
+            .map { File("$it/$subdir/$name") }
+            .firstOrNull { it.isFile }
+        require(shared != null) {
+            "Model missing. Push to ${SHARED_ROOTS[0]}/$subdir/$name (or legacy Mneme path) or ${private.absolutePath}"
         }
         private.parentFile?.mkdirs()
         shared.copyTo(private, overwrite = true)

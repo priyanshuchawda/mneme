@@ -1,4 +1,4 @@
-# Mneme
+# Retenqo
 
 Offline personal memory for your phone. Capture what matters from screens, WhatsApp, and files — then ask in plain text. Everything stays on-device.
 
@@ -49,7 +49,9 @@ git checkout -b feature/your-change
 gh pr merge <n> --merge
 ```
 
-Repo: https://github.com/priyanshuchawda/mneme
+Repo: https://github.com/priyanshuchawda/mneme  
+
+Internal Android package stays `com.mneme.app` (safe upgrades). Brand name is **Retenqo**.
 
 ## Docs
 

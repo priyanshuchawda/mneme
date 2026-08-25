@@ -1,4 +1,4 @@
-# Mneme — Phone 1 testing & on-device AI guide
+# Retenqo — Phone 1 testing & on-device AI guide
 
 **Device:** Redmi 13 5G · ADB `1431df87` · 6 GB RAM · Snapdragon 4 Gen 2  
 **Author:** Priyanshu Chawda  
@@ -15,7 +15,7 @@ Related: [MODELS.md](./MODELS.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi1
 | **Whisper STT** | ✅ **WORKING** | JFK sample transcribed correctly in **~6.4s** (11s audio) |
 | **Qwen3.5-2B LLM** | 🔄 **Building** | llama.cpp compiling in Ubuntu (first run ~15–25 min) |
 | **Qwen3-Embedding-0.6B** | ⏳ **Download next** | Default RAG embed (GGUF Q8); HashEmbed interim in app |
-| **LiteRT fallback .task** | ⏳ **File only** | On `/sdcard/Mneme`; runtime needs LiteRT-LM in app |
+| **LiteRT fallback .task** | ⏳ **File only** | On `/sdcard/Retenqo`; runtime needs LiteRT-LM in app |
 | **Models on device** | ✅ | `~/mneme-test/` — 1 GB LLM + 57 MB Whisper + 171 MB embed |
 
 ---
@@ -28,7 +28,7 @@ Related: [MODELS.md](./MODELS.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi1
 |--|-------------------------------|-------------------------------------|
 | Language | C/C++ — runs natively on Android | Python + CTranslate2 |
 | Best on | **CPU / ARM / mobile** | NVIDIA GPU servers |
-| Mneme integration | **whisper.cpp JNI** (official Android example) | Needs Python env — bad for APK |
+| Retenqo integration | **whisper.cpp JNI** (official Android example) | Needs Python env — bad for APK |
 | Quant format | GGML `.bin` (q5_1, q8_0, etc.) | int8 / float16 via pip |
 
 Sources: [whisper.cpp vs faster-whisper](https://getinvoke.dev/learn/whisper-cpp-vs-faster-whisper/), [whisper.cpp GitHub](https://github.com/ggerganov/whisper.cpp), [HF ggml models](https://huggingface.co/ggerganov/whisper.cpp).
@@ -47,7 +47,7 @@ Sources: [whisper.cpp vs faster-whisper](https://getinvoke.dev/learn/whisper-cpp
 
 ### Whisper options for your 6 GB phone
 
-| Model | Size | RAM | Speed (11s clip) | Quality | Mneme recommendation |
+| Model | Size | RAM | Speed (11s clip) | Quality | Retenqo recommendation |
 |-------|------|-----|------------------|---------|----------------------|
 | **tiny.en-q5_1** | 31 MB | ~273 MB | ~3–4s | OK for clear speech | Fallback if RAM tight |
 | **base-q5_1** ✅ | 57 MB | ~388 MB | **~6–7s** ✅ tested | Good accents/noise | **P0 Phone 1 — keep this** |
@@ -85,7 +85,7 @@ ML Kit (OCR) → Qwen3.5-2B Q4_K_M (llama.cpp) → Qwen3-Embedding-0.6B (GGUF)
 
 1. **Settings → Apps → Termux → Files → Allow all files**
 2. **Settings → Apps → Termux → Battery → Unrestricted**
-3. In Termux: `bash /sdcard/Mneme/scripts/termux-setup-mneme.sh`
+3. In Termux: `bash /sdcard/Retenqo/scripts/termux-setup-mneme.sh`
 
 ### From laptop (SSH — recommended)
 
@@ -115,14 +115,14 @@ Or use helper: `./scripts/laptop-mneme-phone.sh setup|test|log|ssh`
 2. **Use whisper.cpp**, not faster-whisper, for the Android app
 3. Build with `-DGGML_OPENMP=OFF` on Termux/Ubuntu
 4. **One big model at a time** — unload Qwen before loading anything else heavy
-5. Termux is **dev lab only** — production Mneme app uses JNI directly
+5. Termux is **dev lab only** — production Retenqo app uses JNI directly
 
 ---
 
 ## Folder layout
 
 ```
-/sdcard/Mneme/                          ← adb push here
+/sdcard/Retenqo/                          ← adb push here
 ~/mneme-test/                           ← copy/run here (Termux internal)
 ├── llm/Qwen3.5-2B-M-TS-Q4_K_M.gguf
 ├── whisper/ggml-base-q5_1.bin
@@ -133,7 +133,7 @@ Or use helper: `./scripts/laptop-mneme-phone.sh setup|test|log|ssh`
 
 ---
 
-## Production path (Mneme Kotlin app)
+## Production path (Retenqo Kotlin app)
 
 | Component | Ship with |
 |-----------|-----------|
@@ -153,5 +153,5 @@ Or use helper: `./scripts/laptop-mneme-phone.sh setup|test|log|ssh`
 - [ ] llama.cpp build complete → Qwen3.5-2B inference test
 - [ ] Download + load Qwen3-Embedding-0.6B Q8 GGUF
 - [ ] Wire embed into NoteRepository (replace HashEmbedder)
-- [ ] Termux: Allow all files (for `/sdcard/Mneme` sync)
-- [ ] Start Kotlin Mneme app scaffold
+- [ ] Termux: Allow all files (for `/sdcard/Retenqo` sync)
+- [ ] Start Kotlin Retenqo app scaffold

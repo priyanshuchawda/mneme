@@ -28,8 +28,8 @@ object PulsePipelineHints {
         if (t.isEmpty()) return false
         val hits = SELF_UI.findAll(t).count()
         val lower = t.lowercase()
-        val mnemeHits = Regex("""(?i)\bmneme\b""").findAll(t).count()
-        return hits >= 1 || (mnemeHits >= 2 && "pulse" in lower)
+        val brandHits = Regex("""(?i)\b(retenqo|mneme)\b""").findAll(t).count()
+        return hits >= 1 || (brandHits >= 2 && "pulse" in lower)
     }
 
     fun looksLikeBrowserOrAiChrome(text: String): Boolean {

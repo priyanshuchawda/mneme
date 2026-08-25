@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run Mneme JVM unit tests (no device required).
+# Run Retenqo JVM unit tests (no device required).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT/android/mneme"

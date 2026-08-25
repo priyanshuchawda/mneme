@@ -29,5 +29,5 @@ ${MSG}
 ## Test plan
 - [ ] ./scripts/build-mneme.sh
 - [ ] ./scripts/install-mneme.sh
-- [ ] Open Mneme → Pulse → note in timeline
+- [ ] Open Retenqo → Pulse → note in timeline
 "

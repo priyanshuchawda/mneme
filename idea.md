@@ -1,4 +1,4 @@
-# Mneme — Offline Personal Memory Assistant
+# Retenqo — Offline Personal Memory Assistant
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
 **Product:** Private on-device memory for daily phone use  
@@ -9,7 +9,7 @@
 
 ## One-line pitch
 
-**Mneme** captures important moments from your phone (notifications, WhatsApp media, on-demand screen pulses), turns them into **private notes**, and lets you **ask in text offline** — it answers from what it saved, cites the source, and reminds you about due dates. **Your context never leaves the device.**
+**Retenqo** captures important moments from your phone (notifications, WhatsApp media, on-demand screen pulses), turns them into **private notes**, and lets you **ask in text offline** — it answers from what it saved, cites the source, and reminds you about due dates. **Your context never leaves the device.**
 
 ---
 
@@ -34,7 +34,7 @@
 
 ## vs Google Assistant / Gemini
 
-| | Google Assistant / Gemini | Mneme |
+| | Google Assistant / Gemini | Retenqo |
 |--|----------------------------|--------|
 | Long-term memory | Cloud, Google-controlled | **Local SQLite + embeddings you own** |
 | Screen understanding | Live, online session | **Pulse → extract → delete pixels** |
@@ -55,11 +55,11 @@ Phone quietly saves **short notes** from notifications, clipboard, and when user
 ### Anytime
 ```
 You:  "When is chapter 11 due?"
-Mneme: "On August 20, from a screen note: Chapter 11 due August 25."
+Retenqo: "On August 20, from a screen note: Chapter 11 due August 25."
        "Want a reminder the day before?"
 
 You:  "Set alarm for 7 AM"
-Mneme: "Done."  → actually sets alarm
+Retenqo: "Done."  → actually sets alarm
 ```
 
 ---
@@ -112,7 +112,7 @@ IF focus_mode ON:
     every 90 seconds (NOT 5):
         IF screen ON AND content hash changed:
             pulse → AI → delete → save
-    foreground notification: "Mneme Focus active"
+    foreground notification: "Retenqo Focus active"
     auto-stop after 2–4 hours
 ```
 
@@ -299,7 +299,7 @@ mneme/
 
 ## Open questions (to decide on device)
 
-- [ ] Final name: **Mneme** vs **Recall** vs **Pulse**  
+- [ ] Final name: **Retenqo** vs **Recall** vs **Pulse**  
 - [ ] MediaProjection vs Accessibility for text capture on Redmi 13  
 - [ ] Gemma 3n vs OCR+LLM for Pulse extract on 6 GB RAM  
 - [ ] Cloud LLM fallback during Redmi dev phase  
@@ -312,7 +312,7 @@ mneme/
 **Author:** Priyanshu Chawda (`priyanshuchawda`)  
 **Email:** hellopriyanshu4@gmail.com  
 
-This document and associated code are authored for the Mneme project.  
+This document and associated code are authored for the Retenqo project.  
 Implementation on physical devices is in progress — logic and scope may evolve.
 
 ---
