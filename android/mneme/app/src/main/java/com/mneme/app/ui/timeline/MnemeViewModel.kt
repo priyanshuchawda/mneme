@@ -12,6 +12,7 @@ import com.mneme.app.data.NoteEntity
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.media.MediaIngestPipeline
 import com.mneme.app.media.MnemePowerGates
+import com.mneme.app.notif.MnemeNotificationListener
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
 import com.mneme.app.voice.AlarmScheduler
@@ -42,6 +43,7 @@ data class MnemeUiState(
     val askAnswer: String? = null,
     val askCitations: List<NoteEntity> = emptyList(),
     val listening: Boolean = false,
+    val notifAccess: Boolean = false,
 )
 
 class MnemeViewModel(
@@ -63,6 +65,20 @@ class MnemeViewModel(
 
     private val mic = MicRecorder()
     private var pumpJob: Job? = null
+
+    init {
+        refreshNotifAccess()
+    }
+
+    fun refreshNotifAccess() {
+        _ui.value = _ui.value.copy(
+            notifAccess = MnemeNotificationListener.isEnabled(getApplication()),
+        )
+    }
+
+    fun openNotifAccessSettings() {
+        MnemeNotificationListener.openSettings(getApplication())
+    }
 
     fun setTab(tab: MnemeTab) {
         if (_ui.value.listening) stopListening(submit = false)
