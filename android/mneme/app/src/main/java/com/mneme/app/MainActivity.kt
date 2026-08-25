@@ -66,9 +66,21 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 try {
                     startForegroundService(Intent(this@MainActivity, ProjectionService::class.java))
+                    // Hide Mneme so MediaProjection mirrors the previous app (e.g. WhatsApp).
+                    moveTaskToBack(true)
+                    kotlinx.coroutines.delay(450)
                     val bitmap = capture.capture(result.resultCode, data)
+                    // Return to Mneme for OCR / save status.
+                    startActivity(
+                        Intent(this@MainActivity, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    )
                     viewModel.onPulseBitmap(bitmap)
                 } catch (e: Exception) {
+                    startActivity(
+                        Intent(this@MainActivity, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    )
                     Toast.makeText(this@MainActivity, "Pulse failed: ${e.message}", Toast.LENGTH_LONG).show()
                 } finally {
                     stopService(Intent(this@MainActivity, ProjectionService::class.java))
