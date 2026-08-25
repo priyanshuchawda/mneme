@@ -79,6 +79,9 @@ class NoteRepository(
 
     suspend fun delete(id: Long) = dao.delete(id)
 
+    suspend fun dueBetween(startMs: Long, endMs: Long): List<NoteEntity> =
+        dao.dueBetween(startMs, endMs)
+
     private suspend fun embed(text: String): FloatArray =
         embedder?.embed(text) ?: HashEmbedder.embed(text)
 

@@ -141,6 +141,9 @@ fun MnemeHomeScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (ui.tab == MnemeTab.Memory) {
+                    TextButton(onClick = viewModel::showWhatsDue) {
+                        Text("Due")
+                    }
                     TextButton(
                         onClick = viewModel::openNotifAccessSettings,
                     ) {
@@ -390,10 +393,21 @@ private fun NoteRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${note.source} · ${
-                        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                            .format(Date(note.createdAt))
-                    }",
+                    text = buildString {
+                        append(note.source)
+                        append(" · ")
+                        append(
+                            DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                                .format(Date(note.createdAt)),
+                        )
+                        note.dueAt?.let { due ->
+                            append(" · due ")
+                            append(
+                                DateFormat.getDateInstance(DateFormat.MEDIUM)
+                                    .format(Date(due)),
+                            )
+                        }
+                    },
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

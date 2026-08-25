@@ -8,12 +8,19 @@ import android.content.Intent
 import android.os.Build
 import android.provider.AlarmClock
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.mneme.app.MainActivity
+import com.mneme.app.R
+import com.mneme.app.remind.DueDigest
+import com.mneme.app.remind.DueReminderScheduler
 import java.util.Calendar
 
 sealed class VoiceIntent {
     data class Query(val text: String) : VoiceIntent()
     data class Remember(val text: String) : VoiceIntent()
     data class SetAlarm(val hour: Int, val minute: Int, val label: String) : VoiceIntent()
+    data object WhatsDue : VoiceIntent()
 }
 
 object VoiceIntentRouter {
@@ -25,6 +32,8 @@ object VoiceIntentRouter {
     fun route(transcript: String): VoiceIntent {
         val t = transcript.trim()
         if (t.isBlank()) return VoiceIntent.Query("")
+
+        if (DueDigest.isDueQuery(t)) return VoiceIntent.WhatsDue
 
         alarmRe.find(t)?.let { m ->
             var hour = m.groupValues[1].toIntOrNull() ?: return@let
@@ -69,6 +78,7 @@ class AlarmScheduler(private val context: Context) {
     }
 
     private fun scheduleExact(hour: Int, minute: Int, label: String): String {
+        DueReminderScheduler.ensureChannel(context)
         val cal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
             set(Calendar.MINUTE, minute)
@@ -99,6 +109,25 @@ class MnemeAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val label = intent.getStringExtra("label") ?: "Mneme reminder"
         Log.i("MnemeAlarm", "fired: $label")
-        // Best-effort: speak via a one-shot TTS is awkward in receivers; show toast via notification later (#7)
+        DueReminderScheduler.ensureChannel(context)
+        val open = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val notif = NotificationCompat.Builder(context, DueReminderScheduler.CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle("Mneme reminder")
+            .setContentText(label)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(3_001, notif)
+        } catch (e: SecurityException) {
+            Log.w("MnemeAlarm", "notif permission: ${e.message}")
+        }
     }
 }

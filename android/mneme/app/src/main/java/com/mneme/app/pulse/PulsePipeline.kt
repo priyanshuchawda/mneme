@@ -10,6 +10,7 @@ import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.NoteExtractor
 import com.mneme.app.ai.PulsePipelineHints
 import com.mneme.app.data.NoteRepository
+import com.mneme.app.remind.DueReminderScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -105,6 +106,9 @@ class PulsePipeline(
         return if (id == null) {
             PulseResult(null, "Already saved recently", skippedDuplicate = true)
         } else {
+            if (extracted.dueAt != null) {
+                DueReminderScheduler.schedule(context, id, extracted.title, extracted.dueAt)
+            }
             val dueHint = if (extracted.dueAt != null) " · due set" else ""
             val kindHint = if (extracted.kind != "other") " · ${extracted.kind}" else ""
             PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint", skippedDuplicate = false)
