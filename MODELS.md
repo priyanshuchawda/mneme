@@ -1,11 +1,27 @@
 # On-Device Model Catalog — Mneme (2026)
 
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda) (`priyanshuchawda`)  
-**Updated:** 2026-08-22 (selected stacks locked for Phone 1 + Phone 2)  
+**Updated:** 2026-08-23 (Phone 1 default embed → Qwen3-Embedding-0.6B)  
 **Project:** Mneme — offline personal memory assistant (iQOO Hackathon 2026)  
 **Devices:** Phone 1 (Redmi 13 5G, 6 GB) · Phone 2 (Note 11 Pro+ 5G, 8 GB) · iQOO 15 loaner (event)
 
-Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md)
+Related docs: [idea.md](./idea.md) · [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) · [phone2.md](./phone2.md) · [HACKATHON_REFERENCE.md](./HACKATHON_REFERENCE.md) · **[eval-results/REPORT.md](./eval-results/REPORT.md)** (measured outputs)
+
+---
+
+## Fedora eval (2026-08-23) — what actually scored best
+
+Full tables + raw answers: **[eval-results/REPORT.md](./eval-results/REPORT.md)** · generation fix notes: [GENERATION_FIX.md](./eval-results/GENERATION_FIX.md)
+
+| Model | Ask (RAG) | Pulse JSON | Ship where |
+|-------|-----------|------------|------------|
+| **Qwen3.5-4B** Q4 (`qwen35`, unsloth) | **Best** — Uber/Priya/Netflix cited correctly; refuses missing | OK structure; dirty OCR still pollutes body | **iQOO / 8 GB+ / Fedora A/B** |
+| **Qwen3.5-2B** Q4 (phone GGUF) | Good with no-think; can over-refuse on multi-note prompts | Good on clean OCR + today date | **Redmi 6 GB daily** |
+| Qwen3-4B-Instruct / Qwen2.5-3B | Garbage on this llama.cpp host | — | Do not use here |
+| Whisper base | — | — | Keep (STT excellent) |
+| Qwen3-VL | Not scored (needs mmproj + mtmd) | Prefer ML Kit → text LLM | Defer |
+
+**Working Fedora CLI:** `-no-cnv` + closed empty `<think></think>` — see `scripts/eval-fedora-text-models.sh`. Without that, answers look blank.
 
 ---
 
@@ -38,7 +54,7 @@ Neither dev phone has Hexagon NPU — CPU/GPU inference now; **iQOO 15 Hexagon +
 | 2 | **Pulse → structured note** (JSON) | **Qwen3.5-2B-Instruct** | Qwen2.5-1.5B-Instruct (LiteRT) | llama.cpp JNI | `Q4_K_M` GGUF | ~1.5 GB | ~2.2 GB | **P0 now** |
 | 3 | **Voice Q&A + citations** | **Qwen3.5-2B-Instruct** *(same file as #2)* | — | llama.cpp JNI | shared weights | — | shared | **P0 now** |
 | 4 | **Intent** (`REMEMBER` / `QUERY` / `ALARM`) | **Keyword + regex rules** | Qwen3.5-0.8B-Instruct | rules → llama.cpp | `Q4_K_M` | ~0.5 GB | ~0.8 GB | P0 rules / P1 model |
-| 5 | **RAG embeddings** | **EmbeddingGemma-300M** | Qwen3-Embedding-0.6B | LiteRT or ONNX | INT4 / Q4 | ~0.2 GB | ~0.3 GB | **P0 now** |
+| 5 | **RAG embeddings** | **Qwen3-Embedding-0.6B** | EmbeddingGemma-300M | llama.cpp / ONNX | `Q8_0` GGUF | ~0.6 GB | ~0.7 GB | **P0 now** |
 | 6 | **RAG search** | **Cosine top-5** on embed vectors | — | SQLite + numpy | — | 0 | ~0 | **P0 now** |
 | 7 | **Voice input (STT)** | **Whisper base** | Whisper tiny | whisper.cpp JNI | `base-q5_1.gguf` | ~60 MB | ~0.1 GB | **P0 now** |
 | 8 | **Voice output (TTS)** | **Android TextToSpeech** | — | system API | — | 0 | 0 | **P0 now** |
@@ -49,11 +65,11 @@ Neither dev phone has Hexagon NPU — CPU/GPU inference now; **iQOO 15 Hexagon +
 | 13 | **Pulse vision** (screenshot without OCR) | *defer* | Qwen3.5-2B multimodal image | llama.cpp | `Q4_K_M` | included in #2 | swap with #2 | **P1** |
 | 14 | **Reranker** | *skip* — not enough RAM for 3 models | — | — | — | — | — | — |
 
-**Phone 1 totals (P0):** ~**1.8 GB** on disk · ~**2.6 GB** peak RAM (LLM + embed + Whisper, one at a time for LLM)
+**Phone 1 totals (P0):** ~**2.2 GB** on disk · ~**3.0 GB** peak RAM (LLM + embed + Whisper; unload LLM before heavy embed batch if needed)
 
 **Phone 1 one-line stack:**
 ```
-ML Kit → Qwen3.5-2B (extract + Q&A) + EmbeddingGemma + Whisper base + Android TTS/alarms
+ML Kit → Qwen3.5-2B (extract + Q&A) + Qwen3-Embedding-0.6B + Whisper base + Android TTS/alarms
 ```
 
 ---
@@ -90,13 +106,13 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 |-----------|----------------|----------------|
 | Pulse OCR | ML Kit | ML Kit |
 | Note extract + Q&A LLM | **Qwen3.5-2B** | **Qwen3.5-4B** |
-| Embeddings | **EmbeddingGemma-300M** | **Qwen3-Embedding-0.6B** |
+| Embeddings | **Qwen3-Embedding-0.6B** | **Qwen3-Embedding-0.6B** |
 | Reranker | skip | **Qwen3-Reranker-0.6B** |
 | Voice STT | **Whisper base Q5** | **Whisper base Q5** |
 | Voice TTS | Android TTS | Android TTS |
 | Pulse VLM | P1: share Qwen3.5-2B | P1: **MiniCPM-V 4.6** |
 | Intent | rules → P1: Qwen3.5-0.8B | **Qwen3.5-0.8B** |
-| Runtime | llama.cpp + LiteRT embed | llama.cpp + ONNX embed |
+| Runtime | llama.cpp (LLM + embed) | llama.cpp + ONNX embed / rerank |
 | ADB serial | `1431df87` | `3e68912fdff2` |
 
 ---
@@ -111,8 +127,8 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 | Qwen3.5-4B-Instruct | `Qwen/Qwen3.5-4B-Instruct` → GGUF | `Q4_K_M` | Phone 2 |
 | Qwen3.5-0.8B-Instruct | `Qwen/Qwen3.5-0.8B-Instruct` → GGUF | `Q4_K_M` | Phone 2 / P1 Phone 1 |
 | Qwen2.5-1.5B fallback | `litert-community/Qwen2.5-1.5B-Instruct` | dynamic INT8 | Phone 1 fallback |
-| EmbeddingGemma | `google/embeddinggemma-300m` | Q4 / LiteRT | Phone 1 |
-| Qwen3-Embed-0.6B | `Qwen/Qwen3-Embedding-0.6B` | ONNX INT8 | Phone 2 |
+| Qwen3-Embed-0.6B | `Qwen/Qwen3-Embedding-0.6B` · GGUF: `Qwen/Qwen3-Embedding-0.6B-GGUF` | `Q8_0` | **Phone 1 + 2** |
+| EmbeddingGemma (fallback) | `google/embeddinggemma-300m` | LiteRT / Q4 | Optional if embed RAM too tight |
 | Qwen3-Reranker-0.6B | `Qwen/Qwen3-Reranker-0.6B` | ONNX INT8 | Phone 2 |
 | MiniCPM-V 4.6 | `openbmb/MiniCPM-V-4.6` → GGUF + mmproj | `Q4_K_M` | Phone 2 P1 |
 | Qwen3-VL-2B | `Qwen/Qwen3-VL-2B-Instruct` → GGUF | `Q4_K_M` | Phone 2 P2 |
@@ -130,10 +146,10 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 | Role | Model | Hugging Face link | Phone file (GGUF) |
 |------|--------|-------------------|-------------------|
 | **Main LLM** (extract + Q&A) | Qwen3.5-2B | [Qwen/Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) (official weights) | [TheStageAI/Qwen3.5-2B-GGUF](https://huggingface.co/TheStageAI/Qwen3.5-2B-GGUF) → `Qwen3.5-2B-M-TS-Q4_K_M.gguf` (~1.07 GB) |
-| **Embeddings** | EmbeddingGemma 300M | [google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) | LiteRT / ONNX bundle (see model card) |
+| **Embeddings (default)** | Qwen3-Embedding-0.6B | [Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) | [Qwen/Qwen3-Embedding-0.6B-GGUF](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF) → `Qwen3-Embedding-0.6B-Q8_0.gguf` |
+| **Embeddings (fallback)** | EmbeddingGemma 300M | [google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) | LiteRT TFLite (optional) |
 | **Voice STT** | Whisper base | [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) | `ggml-base-q5_1.bin` (~60 MB) |
 | **Intent (P1)** | Qwen3.5-0.8B | [Qwen/Qwen3.5-0.8B](https://huggingface.co/Qwen/Qwen3.5-0.8B) | [TheStageAI/Qwen3.5-0.8B-GGUF](https://huggingface.co/TheStageAI/Qwen3.5-0.8B-GGUF) (if available) or search HF |
-| **Fallback LLM** | Qwen2.5-1.5B LiteRT | [litert-community/Qwen2.5-1.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | `.task` / LiteRT INT8 |
 
 **Pulse OCR:** ML Kit — no HF download ([Android ML Kit docs](https://developers.google.com/ml-kit/vision/text-recognition))
 
@@ -159,11 +175,12 @@ ML Kit → Qwen3.5-4B (extract + Q&A) + Qwen3-Embed-0.6B + Qwen3-Reranker + Whis
 
 | Role | Model | Hugging Face link |
 |------|--------|-------------------|
-| **Hero LLM** | Qwen3.5-9B | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) · GGUF: search `Qwen3.5-9B-GGUF` |
+| **Proven quality LLM (Fedora)** | **Qwen3.5-4B** | [Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) · GGUF: [unsloth/Qwen3.5-4B-GGUF](https://huggingface.co/unsloth/Qwen3.5-4B-GGUF) → `Qwen3.5-4B-Q4_K_M.gguf` (local: `models/eval/`) |
+| **Hero stretch** | Qwen3.5-9B | [Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B) · GGUF: search `Qwen3.5-9B-GGUF` |
 | **Google / NPU story** | Gemma 4 E2B | [google/gemma-4-E2B](https://huggingface.co/google/gemma-4-E2B) |
 | **Mobile QAT bundle** | Gemma 4 E2B QAT | [google/gemma-4-E2B-it-qat-mobile-transformers](https://huggingface.co/google/gemma-4-E2B-it-qat-mobile-transformers) |
 | **Larger edge (optional)** | Gemma 4 E4B | [google/gemma-4-E4B](https://huggingface.co/google/gemma-4-E4B) |
-| **Embeddings** | EmbeddingGemma | [google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) |
+| **Embeddings** | Qwen3-Embedding-0.6B | [Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B) |
 
 ---
 
@@ -232,7 +249,7 @@ ollama pull embeddinggemma
 
 ### Memory load order (avoid OOM)
 
-1. Start app → load **EmbeddingGemma** or **Qwen3-Embed** (small, keep resident)
+1. Start app → load **Qwen3-Embedding-0.6B** (keep resident; unload only if LLM OOM)
 2. User taps Pulse → run **ML Kit** (no model load)
 3. Need AI extract → load **Qwen3.5-2B/4B** → run → **keep warm** for Q&A session
 4. User speaks → **Whisper base** (can run while LLM loaded if total < budget; else unload LLM briefly)
@@ -394,8 +411,8 @@ Android demo APK: [MiniCPM-V-Apps](https://github.com/OpenBMB/MiniCPM-V-Apps) (m
 
 | Tier | Model | Size | Dims | Context | License |
 |------|--------|------|------|---------|---------|
-| 🔥 | **EmbeddingGemma-300M** | <200 MB quant | 768→128 MRL | 2K | Gemma |
-| 🔥 | **Qwen3-Embedding-0.6B** | ~0.6 GB | 1024 MRL | 32K | Apache 2.0 |
+| 🔥 | **Qwen3-Embedding-0.6B** | ~0.6 GB | 1024 MRL | 32K | **Default Phone 1+2** · Apache 2.0 |
+| ⭐ | **EmbeddingGemma-300M** | <200 MB quant | 768→128 MRL | 2K | Fallback if RAM tight |
 | ⭐ | **Qwen3-Reranker-0.6B** | ~0.6 GB | — | 32K | Pair with embedder |
 | ⭐ | **jina-embeddings-v5-text-small** | <1 GB | — | 32K | Retrieval SOTA class |
 | ⭐ | **jina-reranker-v3** | 0.6B | — | 8K | RAG reranking |
@@ -558,12 +575,13 @@ ollama pull embeddinggemma
 
 | Question | Answer |
 |----------|--------|
-| **Phone 1 stack (locked)?** | ML Kit + **Qwen3.5-2B** + **EmbeddingGemma** + **Whisper base** |
+| **Phone 1 stack (locked)?** | ML Kit + **Qwen3.5-2B** + **Qwen3-Embedding-0.6B** + **Whisper base** |
+| **Phone 2 / iQOO quality LLM?** | **Qwen3.5-4B** (Fedora Ask suite: best citations — see [eval-results/REPORT.md](./eval-results/REPORT.md)) |
 | **Phone 2 stack (locked)?** | ML Kit + **Qwen3.5-4B** + **Qwen3-Embed-0.6B** + **Qwen3-Reranker** + Whisper |
 | Best Google / iQOO narrative? | **Gemma 4 E2B/E4B** + **EmbeddingGemma** on Hexagon |
-| Phone 2 VLM (P1)? | **MiniCPM-V 4.6** |
+| Phone 2 VLM (P1)? | **MiniCPM-V 4.6** (defer if OCR path holds) |
 | Phone 2 screen agent (P2)? | **Qwen3-VL-2B** |
-| Hackathon hero model? | **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
+| Hackathon hero model? | Start **Qwen3.5-4B**; stretch **Qwen3.5-9B** or **Gemma 4 E4B** on iQOO NPU |
 | Full catalog below? | Sections 1–7, 9–13 |
 
 ---

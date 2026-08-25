@@ -8,6 +8,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.NoteExtractor
+import com.mneme.app.ai.PulsePipelineHints
 import com.mneme.app.data.NoteRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -55,17 +56,23 @@ class PulsePipeline(
                     NoteExtractor.fallback(text)
                 }
 
+                if (!extracted.important && extracted.kind == "chat") {
+                    return PulseResult(null, "Skipped casual chat", skippedDuplicate = false)
+                }
+
                 val id = notes.saveIfNew(
                     title = extracted.title,
                     body = extracted.body,
                     source = sourceLabel,
                     dueAt = extracted.dueAt,
+                    embedText = extracted.embedText,
                 )
                 if (id == null) {
                     PulseResult(null, "Already saved recently", skippedDuplicate = true)
                 } else {
                     val dueHint = if (extracted.dueAt != null) " · due set" else ""
-                    PulseResult(id, "Saved: ${extracted.title}$dueHint", skippedDuplicate = false)
+                    val kindHint = if (extracted.kind != "other") " · ${extracted.kind}" else ""
+                    PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint", skippedDuplicate = false)
                 }
             } finally {
                 if (!bitmap.isRecycled) bitmap.recycle()
@@ -93,16 +100,6 @@ class PulsePipeline(
         }
 
     companion object {
-        private val SAVE_HINTS = Regex(
-            """(?i)(due|deadline|submit|exam|chapter|meeting|homework|reminder|tomorrow|aug|sept|oct|nov|dec|jan|feb|mar|apr|may|jun|jul|\d{1,2}[:/.-]\d{1,2}|@|\.com|http)""",
-        )
-
-        fun shouldSave(text: String): Boolean {
-            val t = text.trim()
-            if (t.length < 10) return false
-            val lower = t.lowercase()
-            if (lower in setOf("ok", "okay", "thanks", "thank you", "lol", "haha", "yes", "no")) return false
-            return SAVE_HINTS.containsMatchIn(t) || t.length >= 40
-        }
+        fun shouldSave(text: String): Boolean = PulsePipelineHints.looksImportant(text)
     }
 }

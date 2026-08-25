@@ -183,7 +183,7 @@ LLM outputs structured JSON → app executes tool → confirms by voice.
 | Job | Model | Notes |
 |-----|--------|--------|
 | Read screen (Pulse) | Gemma 3n E2B or OCR + Gemma 1B | Extract JSON facts |
-| Index notes | EmbeddingGemma 300M | RAG search |
+| Index notes | Qwen3-Embedding-0.6B | RAG search |
 | Answer + tool routing | Gemma 1B–3B INT4 | QNN / MediaPipe |
 | Speech in | Whisper-small or Android STT | English |
 | Speech out | Android TTS | English |
