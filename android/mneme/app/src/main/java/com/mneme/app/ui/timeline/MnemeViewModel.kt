@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.mneme.app.ai.AskResult
 import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.MemoryAsk
+import com.mneme.app.data.IngestSources
 import com.mneme.app.data.NoteEntity
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.media.MediaIngestPipeline
@@ -302,6 +303,32 @@ class MnemeViewModel(
                 return@launch
             }
             _ui.value = _ui.value.copy(mediaBusy = false, status = result.message)
+        }
+    }
+
+    /** On-device E2E without real WA: sample chat → extract → card. */
+    fun ingestDemoSample() {
+        if (_ui.value.mediaBusy || _ui.value.pulsing) return
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(mediaBusy = true, status = "Saving demo card…")
+            val sample = """
+                From Rahul:
+                Pay me ₹500 by Friday for dinner last week
+            """.trimIndent()
+            val result = try {
+                pulse.ingestText(sample, sourceLabel = IngestSources.DEMO)
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    mediaBusy = false,
+                    status = "Demo ingest failed: ${e.message}",
+                )
+                return@launch
+            }
+            _ui.value = _ui.value.copy(
+                mediaBusy = false,
+                status = result.preview,
+                tab = MnemeTab.Memory,
+            )
         }
     }
 

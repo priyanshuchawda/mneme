@@ -10,6 +10,7 @@ import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.NoteExtractor
 import com.mneme.app.ai.PulsePipelineHints
 import com.mneme.app.data.CardType
+import com.mneme.app.data.IngestSources
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.remind.DueReminderScheduler
 import kotlinx.coroutines.Dispatchers
@@ -38,7 +39,7 @@ class PulsePipeline(
     private val mutex = Mutex()
     private var lastPulseAt = 0L
 
-    suspend fun runFromBitmap(bitmap: Bitmap, sourceLabel: String = "Pulse"): PulseResult =
+    suspend fun runFromBitmap(bitmap: Bitmap, sourceLabel: String = IngestSources.PULSE): PulseResult =
         mutex.withLock {
             val now = System.currentTimeMillis()
             if (now - lastPulseAt < 3_000L) {
@@ -54,7 +55,7 @@ class PulsePipeline(
             }
         }
 
-    suspend fun runFromFile(file: File, sourceLabel: String = "Pulse"): PulseResult =
+    suspend fun runFromFile(file: File, sourceLabel: String = IngestSources.PULSE): PulseResult =
         withContext(Dispatchers.IO) {
             val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                 ?: return@withContext PulseResult(null, "Could not read screenshot", false)

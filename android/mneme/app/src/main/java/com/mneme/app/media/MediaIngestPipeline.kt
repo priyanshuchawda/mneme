@@ -8,6 +8,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.mneme.app.ai.PulsePipelineHints
+import com.mneme.app.data.IngestSources
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
 import kotlinx.coroutines.Dispatchers
@@ -88,7 +89,7 @@ class MediaIngestPipeline(
     }
 
     suspend fun ingestFile(file: File): PulseResult {
-        val label = "WA · ${file.name.take(40)}"
+        val label = IngestSources.waMedia(file.name)
         val ext = file.extension.lowercase()
         val text = when (ext) {
             "pdf" -> ocrPdf(file)

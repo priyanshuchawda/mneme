@@ -2,7 +2,6 @@ package com.mneme.app.data
 
 import com.mneme.app.ai.HashEmbedder
 import com.mneme.app.ai.MnemeEmbedder
-import java.security.MessageDigest
 
 data class ScoredNote(
     val note: NoteEntity,
@@ -66,12 +65,15 @@ class NoteRepository(
         cardType: CardType? = null,
         confidence: Float = 1f,
     ): Long? {
-        val hash = sha256("$title|$body|$source")
-        val since = System.currentTimeMillis() - 10 * 60_000L
-        if (dao.countRecentHash(hash, since) > 0) return null
         val forEmbed = (embedText?.takeIf { it.isNotBlank() } ?: "$title\n$body")
         val vec = embed(forEmbed)
         val type = cardType ?: CardClassifier.classify(title, body, dueAt, who)
+        val hash = IngestSources.contentFingerprint(
+            title.ifBlank { body.lineSequence().firstOrNull()?.take(80) ?: "Note" },
+            body,
+        )
+        val since = System.currentTimeMillis() - 10 * 60_000L
+        if (dao.countRecentHash(hash, since) > 0) return null
         return dao.insert(
             NoteEntity(
                 title = title.ifBlank { body.lineSequence().firstOrNull()?.take(80) ?: "Note" },
@@ -139,10 +141,5 @@ class NoteRepository(
         if (tokens.isEmpty()) return if (hay.contains(q.lowercase())) 0.4f else 0f
         val hits = tokens.count { hay.contains(it) }
         return hits.toFloat() / tokens.size
-    }
-
-    private fun sha256(text: String): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
     }
 }
