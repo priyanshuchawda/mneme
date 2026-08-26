@@ -1,5 +1,7 @@
 package com.mneme.app.ai
 
+import com.mneme.app.data.CardClassifier
+import com.mneme.app.data.CardType
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -12,16 +14,28 @@ data class ExtractedNote(
     val embedText: String = body,
     val kind: String = "other",
     val important: Boolean = true,
+    val who: String? = null,
+    /** [com.mneme.app.data.CardType.storage] */
+    val cardType: String = CardType.FACT.storage,
+    val confidence: Float = 1f,
+    val usedLlm: Boolean = false,
 )
 
 /**
- * Pulse OCR → structured memory card.
+ * Text → structured memory card.
  *
- * Fedora eval (eval-results/pulse-store): rich schema B beats dumping OCR into body.
- * We flatten extras into [body] so Room stays title/body/dueAt/embedding.
+ * Pipeline: [RulesExtract] first; local Qwen only when rules are uncertain.
  */
 object NoteExtractor {
-    suspend fun extract(llm: LlmBridge, ocrText: String): ExtractedNote {
+    suspend fun extract(llm: LlmBridge?, ocrText: String): ExtractedNote {
+        val rules = RulesExtract.extract(ocrText)
+        if (!rules.needsLlm) {
+            return rules.toExtractedNote(usedLlm = false)
+        }
+        if (llm == null) {
+            return rules.toExtractedNote(usedLlm = false)
+        }
+
         val today = LocalDate.now()
         val prompt = """
             Extract ONE personal memory card as JSON only (no markdown, no thinking).
@@ -47,28 +61,15 @@ object NoteExtractor {
         return try {
             llm.ensureLoaded()
             val raw = llm.complete(prompt, maxTokens = 220)
-            parseJson(raw, ocrText)
+            mergeWithRules(parseJson(raw, ocrText), rules)
         } catch (_: Exception) {
-            fallback(ocrText)
+            rules.toExtractedNote(usedLlm = false)
         }
     }
 
-    fun fallback(ocrText: String): ExtractedNote {
-        val title = ocrText.lineSequence()
-            .map { it.trim() }
-            .firstOrNull { it.isNotBlank() && !PulsePipelineHints.looksLikeClockOnlyTitle(it) }
-            ?.take(80)
-            ?: "Screen note"
-        val body = ocrText.trim()
-        return ExtractedNote(
-            title = title,
-            body = body,
-            dueAt = DueDateGuess.guess(ocrText),
-            embedText = body.take(800),
-            kind = "other",
-            important = PulsePipelineHints.looksImportant(ocrText),
-        )
-    }
+    /** Rules-only path (tests / no LLM). */
+    fun fallback(ocrText: String): ExtractedNote =
+        RulesExtract.extract(ocrText).toExtractedNote(usedLlm = false)
 
     fun parseJson(raw: String, fallbackText: String): ExtractedNote {
         val start = raw.indexOf('{')
@@ -111,9 +112,11 @@ object NoteExtractor {
                 tags = tags,
             )
 
-            // Prefer model due_date only when it is a real calendar date; never fall back to clock OCR.
             val dueAt = DueDateGuess.normalizeYear(DueDateGuess.parseIsoOrEnglish(due))
                 ?: DueDateGuess.guess(fallbackText)
+
+            val who = chatWith ?: people.firstOrNull()
+            val cardType = CardClassifier.classify(title, storedBody, dueAt, who)
 
             ExtractedNote(
                 title = title.take(120),
@@ -122,10 +125,37 @@ object NoteExtractor {
                 embedText = embedText.take(1200),
                 kind = kind,
                 important = important,
+                who = who,
+                cardType = cardType.storage,
+                confidence = 0.75f,
+                usedLlm = true,
             )
         } catch (_: Exception) {
             fallback(fallbackText)
         }
+    }
+
+    /** Prefer rule-anchored due / amount / who when the model is vague. */
+    internal fun mergeWithRules(llm: ExtractedNote, rules: RulesExtract.RulesHit): ExtractedNote {
+        val dueAt = rules.dueAt ?: llm.dueAt
+        val who = rules.who ?: llm.who
+        val body = buildString {
+            append(llm.body.trim())
+            if (rules.amountText != null && !llm.body.contains(rules.amountText.removePrefix("₹"))) {
+                append("\nAmount: ").append(rules.amountText)
+            }
+        }
+        val cardType = CardClassifier.classify(llm.title, body, dueAt, who)
+        return llm.copy(
+            dueAt = dueAt,
+            who = who,
+            body = body,
+            cardType = cardType.storage,
+            confidence = maxOf(llm.confidence, rules.confidence),
+            usedLlm = true,
+            embedText = llm.embedText.ifBlank { rules.embedText },
+            important = llm.important || rules.important,
+        )
     }
 
     private fun jsonStringList(any: Any?): List<String> = when (any) {
