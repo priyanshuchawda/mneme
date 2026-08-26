@@ -14,6 +14,8 @@ class NoteRepository(
 ) {
     fun observeNotes() = dao.observeAll()
 
+    suspend fun getAll() = dao.getAll()
+
     suspend fun search(query: String) = dao.search(query.trim())
 
     suspend fun retrieve(query: String, limit: Int = 5): List<NoteEntity> =

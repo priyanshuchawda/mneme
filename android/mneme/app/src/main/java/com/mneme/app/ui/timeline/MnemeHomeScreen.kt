@@ -159,6 +159,9 @@ fun MnemeHomeScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (ui.tab == MnemeTab.Memory) {
+                    TextButton(onClick = viewModel::showBrief) {
+                        Text("Brief")
+                    }
                     TextButton(onClick = viewModel::showWhatsDue) {
                         Text("Due")
                     }
@@ -180,6 +183,10 @@ fun MnemeHomeScreen(
                     onDone = viewModel::markDone,
                     onSnooze = viewModel::snoozeOneDay,
                     onReopen = viewModel::reopenCard,
+                    showBrief = ui.showBrief,
+                    briefHeadline = ui.briefHeadline,
+                    briefBody = ui.briefBody,
+                    onDismissBrief = viewModel::dismissBrief,
                 )
                 MnemeTab.Ask -> AskPane(
                     query = ui.askQuery,
@@ -221,7 +228,40 @@ private fun MemoryPane(
     onDone: (Long) -> Unit,
     onSnooze: (Long) -> Unit,
     onReopen: (Long) -> Unit,
+    showBrief: Boolean,
+    briefHeadline: String,
+    briefBody: String,
+    onDismissBrief: () -> Unit,
 ) {
+    if (showBrief) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+                    RoundedCornerShape(18.dp),
+                )
+                .padding(16.dp),
+        ) {
+            Text(text = "Brief", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = briefHeadline,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = briefBody,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = onDismissBrief) {
+                Text("Got it")
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+    }
     TextField(
         value = query,
         onValueChange = onQuery,
