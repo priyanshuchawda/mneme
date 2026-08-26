@@ -73,7 +73,8 @@ object DueReminderScheduler {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val (start, end) = DueDigest.queryWindow()
-                val notes = MnemeDatabase.get(context).notes().dueBetween(start, end)
+                val notes = MnemeDatabase.get(context).notes()
+                    .dueBetween(start, end, System.currentTimeMillis())
                 var n = 0
                 for (note in notes) {
                     val due = note.dueAt ?: continue
