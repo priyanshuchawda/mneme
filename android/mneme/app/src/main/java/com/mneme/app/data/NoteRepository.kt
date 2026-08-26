@@ -2,6 +2,7 @@ package com.mneme.app.data
 
 import com.mneme.app.ai.HashEmbedder
 import com.mneme.app.ai.MnemeEmbedder
+import com.mneme.app.ai.CardAskQueries
 
 data class ScoredNote(
     val note: NoteEntity,
@@ -23,13 +24,14 @@ class NoteRepository(
 
     /**
      * Semantic + keyword retrieval with scores for Ask relevance gating.
-     * Prefers active (open / unsnoozed) cards.
+     * Prefers active cards; boosts types matching the question intent.
      */
     suspend fun retrieveScored(query: String, limit: Int = 5): List<ScoredNote> {
         val q = query.trim()
         if (q.isEmpty()) return emptyList()
 
         val now = System.currentTimeMillis()
+        val boost = CardAskQueries.boostTypes(q)
         val qVec = embed(q)
         val scored = dao.getAll().mapNotNull { note ->
             val vec = fromBytes(note.embedding)
@@ -39,6 +41,7 @@ class NoteRepository(
                 keywordScore(q, note)
             }
             if (!note.isActive(now)) score *= 0.35f
+            if (note.type() in boost) score *= 1.28f
             if (score > 0.05f) ScoredNote(note, score) else null
         }.sortedByDescending { it.score }
 
