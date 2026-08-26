@@ -138,7 +138,7 @@ fun MnemeHomeScreen(
             Text(
                 text = when (ui.tab) {
                     MnemeTab.Memory -> "Your private memory stays on this phone."
-                    MnemeTab.Ask -> "Ask only from what you saved."
+                    MnemeTab.Ask -> "Ask from your cards — dues, waiting, promises."
                     MnemeTab.Settings -> "Permissions and capture setup."
                 },
                 style = MaterialTheme.typography.bodyLarge,
@@ -315,7 +315,7 @@ private fun AskPane(
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         enabled = !busy && !listening,
-        placeholder = { Text(text = "When is chapter 11 due?") },
+        placeholder = { Text(text = "What do I owe? / waiting on whom?") },
         shape = RoundedCornerShape(16.dp),
         colors = fieldColors(),
     )
