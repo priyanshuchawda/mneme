@@ -34,6 +34,7 @@ fun SettingsPane(
     onRequestMic: () -> Unit,
     onOpenExactAlarm: () -> Unit,
     onScanWhatsApp: () -> Unit,
+    onDemoSample: () -> Unit,
     onOpenAppDetails: () -> Unit,
 ) {
     Column(
@@ -133,6 +134,15 @@ fun SettingsPane(
             ok = false,
             actionLabel = if (mediaBusy) "Scanning…" else "Scan",
             onAction = onScanWhatsApp,
+            enabled = !mediaBusy,
+            showStatus = false,
+        )
+        SetupRow(
+            title = "Demo sample card",
+            subtitle = "Save a sample “pay ₹500” chat without WhatsApp (airplane-mode demo)",
+            ok = false,
+            actionLabel = if (mediaBusy) "Working…" else "Save",
+            onAction = onDemoSample,
             enabled = !mediaBusy,
             showStatus = false,
         )

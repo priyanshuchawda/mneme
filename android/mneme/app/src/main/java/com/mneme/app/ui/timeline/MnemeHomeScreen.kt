@@ -204,6 +204,7 @@ fun MnemeHomeScreen(
                     onRequestMic = onRequestMicPermission,
                     onOpenExactAlarm = viewModel::openExactAlarmSettings,
                     onScanWhatsApp = viewModel::scanWhatsAppMedia,
+                    onDemoSample = viewModel::ingestDemoSample,
                     onOpenAppDetails = viewModel::openAppDetails,
                 )
             }

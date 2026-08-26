@@ -17,6 +17,11 @@ object NotifQueueLogic {
         val entry = encode(source, text)
         val items = parse(existingJson).toMutableList()
         if (items.lastOrNull() == entry) return encodeList(items)
+        // Drop spam: same message body already queued (any source)
+        val norm = text.replace(Regex("\\s+"), " ").trim().lowercase()
+        if (items.any { decode(it).second.replace(Regex("\\s+"), " ").trim().lowercase() == norm }) {
+            return encodeList(items)
+        }
         items.add(entry)
         val trimmed = if (items.size > max) items.takeLast(max) else items
         return encodeList(trimmed)

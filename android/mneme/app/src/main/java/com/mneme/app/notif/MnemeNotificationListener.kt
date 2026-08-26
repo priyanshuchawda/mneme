@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.mneme.app.data.IngestSources
 
 /**
  * Important-app notification watcher (WA, Gmail, SMS, Telegram, …).
@@ -27,8 +28,9 @@ class MnemeNotificationListener : NotificationListenerService() {
             ?: messagingLastLine(extras)
 
         val candidate = NotifTextTriage.candidate(sbn.packageName, title, text) ?: return
-        Log.i(TAG, "queue [${candidate.sourceLabel}]: ${candidate.text.take(80)}")
-        NotifIngestQueue.offer(applicationContext, candidate.sourceLabel, candidate.text)
+        val source = IngestSources.fromNotifLabel(candidate.sourceLabel)
+        Log.i(TAG, "queue [$source]: ${candidate.text.take(80)}")
+        NotifIngestQueue.offer(applicationContext, source, candidate.text)
         NotifIngestWorker.enqueueSoon(applicationContext)
     }
 

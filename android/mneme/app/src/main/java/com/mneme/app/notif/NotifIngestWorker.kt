@@ -47,12 +47,12 @@ class NotifIngestWorker(
         return try {
             while (idx < batch.size) {
                 val (source, text) = batch[idx]
-                val r = pulse.ingestText(text, sourceLabel = "$source notif")
+                val r = pulse.ingestText(text, sourceLabel = source)
                 if (r.noteId != null) saved++ else skipped++
                 Log.i(TAG, "[$source] ${r.preview}")
                 idx++
             }
-            val msg = "Notif: saved $saved · skipped $skipped"
+            val msg = "Notif cards: saved $saved · skipped $skipped"
             Log.i(TAG, msg)
             if (NotifIngestQueue.size(applicationContext) > 0) {
                 enqueueSoon(applicationContext, delaySec = 45)

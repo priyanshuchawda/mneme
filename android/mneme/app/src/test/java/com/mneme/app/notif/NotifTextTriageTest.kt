@@ -69,4 +69,20 @@ class NotifQueueLogicTest {
             batch.map { NotifQueueLogic.decode(it) },
         )
     }
+
+    @Test
+    fun dropsDuplicateBodyAcrossSources() {
+        val once = NotifQueueLogic.offer("[]", "WA notif", "Pay ₹500 by Friday")
+        val twice = NotifQueueLogic.offer(once, "Pulse", "pay  ₹500  by friday")
+        assertEquals(1, NotifQueueLogic.size(twice))
+        assertTrue(twice.contains("WA notif"))
+        assertFalse(twice.contains("Pulse"))
+    }
+
+    @Test
+    fun allowsDifferentBodies() {
+        var q = NotifQueueLogic.offer("[]", "WA notif", "Pay ₹500")
+        q = NotifQueueLogic.offer(q, "WA notif", "Meeting at 5")
+        assertEquals(2, NotifQueueLogic.size(q))
+    }
 }
