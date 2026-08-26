@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.mneme.app.ai.AskResult
 import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.MemoryAsk
+import com.mneme.app.brief.BriefPrefs
+import com.mneme.app.brief.CatchUpBriefBuilder
 import com.mneme.app.data.IngestSources
 import com.mneme.app.data.NoteEntity
 import com.mneme.app.data.NoteRepository
@@ -57,6 +59,10 @@ data class MnemeUiState(
         allFilesAccess = false,
     ),
     val showSetupBanner: Boolean = false,
+    /** Non-LLM catch-up panel (since last open). */
+    val showBrief: Boolean = false,
+    val briefHeadline: String = "",
+    val briefBody: String = "",
 )
 
 class MnemeViewModel(
@@ -81,6 +87,7 @@ class MnemeViewModel(
 
     init {
         refreshSetup(openSettingsIfNeeded = true)
+        refreshBrief(autoShow = true)
     }
 
     fun refreshSetup(openSettingsIfNeeded: Boolean = false) {
@@ -337,6 +344,41 @@ class MnemeViewModel(
             _ui.value = _ui.value.copy(tab = MnemeTab.Ask)
         }
         handleUtterance("what's due today")
+    }
+
+    /** Recompute catch-up brief. [autoShow] only opens panel when there is something new. */
+    fun refreshBrief(autoShow: Boolean = false) {
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val last = BriefPrefs.lastOpenAt(app)
+            val brief = CatchUpBriefBuilder.build(notes.getAll(), last)
+            val body = CatchUpBriefBuilder.formatBody(brief)
+            val openPanel = if (autoShow) !brief.isEmpty else true
+            _ui.value = _ui.value.copy(
+                showBrief = openPanel,
+                briefHeadline = brief.headline,
+                briefBody = body,
+                status = when {
+                    openPanel && !brief.isEmpty -> brief.headline
+                    else -> _ui.value.status
+                },
+            )
+            if (autoShow && brief.isEmpty) {
+                BriefPrefs.markOpened(app)
+            }
+        }
+    }
+
+    fun showBrief() {
+        if (_ui.value.tab != MnemeTab.Memory) {
+            _ui.value = _ui.value.copy(tab = MnemeTab.Memory)
+        }
+        refreshBrief(autoShow = false)
+    }
+
+    fun dismissBrief() {
+        BriefPrefs.markOpened(getApplication())
+        _ui.value = _ui.value.copy(showBrief = false, status = "Ready")
     }
 
     fun deleteNote(id: Long) {
