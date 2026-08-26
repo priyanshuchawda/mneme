@@ -9,6 +9,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.mneme.app.ai.LlmBridge
 import com.mneme.app.ai.NoteExtractor
 import com.mneme.app.ai.PulsePipelineHints
+import com.mneme.app.data.CardType
 import com.mneme.app.data.NoteRepository
 import com.mneme.app.remind.DueReminderScheduler
 import kotlinx.coroutines.Dispatchers
@@ -80,11 +81,7 @@ class PulsePipeline(
             return PulseResult(null, "Nothing important on screen", skippedDuplicate = false)
         }
 
-        val extracted = if (llm != null) {
-            NoteExtractor.extract(llm, trimmed)
-        } else {
-            NoteExtractor.fallback(trimmed)
-        }
+        val extracted = NoteExtractor.extract(llm, trimmed)
 
         if (PulsePipelineHints.shouldSkipIngest("${extracted.title}\n${extracted.body}")) {
             return PulseResult(null, "Skipped junk / UI chrome", skippedDuplicate = false)
@@ -102,6 +99,9 @@ class PulsePipeline(
             source = sourceLabel,
             dueAt = extracted.dueAt,
             embedText = extracted.embedText,
+            who = extracted.who,
+            cardType = CardType.fromStorage(extracted.cardType),
+            confidence = extracted.confidence,
         )
         return if (id == null) {
             PulseResult(null, "Already saved recently", skippedDuplicate = true)
@@ -111,7 +111,8 @@ class PulsePipeline(
             }
             val dueHint = if (extracted.dueAt != null) " · due set" else ""
             val kindHint = if (extracted.kind != "other") " · ${extracted.kind}" else ""
-            PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint", skippedDuplicate = false)
+            val llmHint = if (extracted.usedLlm) " · llm" else " · rules"
+            PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint$llmHint", skippedDuplicate = false)
         }
     }
 
