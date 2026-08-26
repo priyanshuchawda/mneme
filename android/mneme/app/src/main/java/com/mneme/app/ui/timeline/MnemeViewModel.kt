@@ -319,6 +319,29 @@ class MnemeViewModel(
         }
     }
 
+    fun markDone(id: Long) {
+        viewModelScope.launch {
+            DueReminderScheduler.cancel(getApplication(), id)
+            notes.markDone(id)
+            _ui.value = _ui.value.copy(status = "Marked done")
+        }
+    }
+
+    fun snoozeOneDay(id: Long) {
+        viewModelScope.launch {
+            val until = System.currentTimeMillis() + 24L * 60L * 60L * 1000L
+            notes.snooze(id, until)
+            _ui.value = _ui.value.copy(status = "Snoozed 1 day")
+        }
+    }
+
+    fun reopenCard(id: Long) {
+        viewModelScope.launch {
+            notes.markOpen(id)
+            _ui.value = _ui.value.copy(status = "Reopened")
+        }
+    }
+
     override fun onCleared() {
         if (_ui.value.listening) stopListening(submit = false)
         tts.shutdown()

@@ -50,6 +50,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mneme.app.data.CardStatus
 import com.mneme.app.data.NoteEntity
 import java.text.DateFormat
 import java.util.Date
@@ -176,6 +177,9 @@ fun MnemeHomeScreen(
                     query = ui.searchQuery,
                     onQuery = viewModel::setSearch,
                     onDelete = viewModel::deleteNote,
+                    onDone = viewModel::markDone,
+                    onSnooze = viewModel::snoozeOneDay,
+                    onReopen = viewModel::reopenCard,
                 )
                 MnemeTab.Ask -> AskPane(
                     query = ui.askQuery,
@@ -213,6 +217,9 @@ private fun MemoryPane(
     query: String,
     onQuery: (String) -> Unit,
     onDelete: (Long) -> Unit,
+    onDone: (Long) -> Unit,
+    onSnooze: (Long) -> Unit,
+    onReopen: (Long) -> Unit,
 ) {
     TextField(
         value = query,
@@ -237,7 +244,13 @@ private fun MemoryPane(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(shown, key = { it.id }) { note ->
-                NoteRow(note = note, onDelete = { onDelete(note.id) }, showDelete = true)
+                NoteRow(
+                    note = note,
+                    onDelete = { onDelete(note.id) },
+                    onDone = { onDone(note.id) },
+                    onSnooze = { onSnooze(note.id) },
+                    onReopen = { onReopen(note.id) },
+                )
             }
         }
     }
@@ -363,7 +376,7 @@ private fun AskPane(
                 )
             }
             items(citations, key = { "c-${it.id}" }) { note ->
-                NoteRow(note = note, showDelete = false)
+                NoteRow(note = note, showActions = false)
             }
         }
     }
@@ -397,9 +410,14 @@ private fun EmptyMemory(modifier: Modifier = Modifier) {
 @Composable
 private fun NoteRow(
     note: NoteEntity,
-    showDelete: Boolean = false,
+    showActions: Boolean = true,
     onDelete: () -> Unit = {},
+    onDone: () -> Unit = {},
+    onSnooze: () -> Unit = {},
+    onReopen: () -> Unit = {},
 ) {
+    val type = note.type()
+    val status = note.status()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -411,6 +429,30 @@ private fun NoteRow(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = type.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .background(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                RoundedCornerShape(8.dp),
+                            )
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                    if (status != CardStatus.OPEN) {
+                        Text(
+                            text = status.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = note.title,
                     style = MaterialTheme.typography.titleLarge,
@@ -420,6 +462,10 @@ private fun NoteRow(
                 Text(
                     text = buildString {
                         append(note.source)
+                        note.who?.takeIf { it.isNotBlank() }?.let {
+                            append(" · ")
+                            append(it)
+                        }
                         append(" · ")
                         append(
                             DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
@@ -437,9 +483,9 @@ private fun NoteRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (showDelete) {
+            if (showActions) {
                 IconButton(onClick = onDelete) {
-                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete note")
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete")
                 }
             }
         }
@@ -451,5 +497,19 @@ private fun NoteRow(
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        if (showActions) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                when (status) {
+                    CardStatus.DONE -> {
+                        TextButton(onClick = onReopen) { Text("Reopen") }
+                    }
+                    else -> {
+                        TextButton(onClick = onDone) { Text("Done") }
+                        TextButton(onClick = onSnooze) { Text("Snooze 1d") }
+                    }
+                }
+            }
+        }
     }
 }

@@ -31,16 +31,19 @@ object DueDigest {
         today: LocalDate = LocalDate.now(),
         zone: ZoneId = ZoneId.systemDefault(),
     ): String {
-        if (notes.isEmpty()) {
+        val now = System.currentTimeMillis()
+        val active = notes.filter { it.dueAt != null && it.isActive(now) }
+        if (active.isEmpty()) {
             return "Nothing with a due date in the next two weeks."
         }
         val overdue = mutableListOf<String>()
         val todayList = mutableListOf<String>()
         val upcoming = mutableListOf<String>()
-        for (n in notes.sortedBy { it.dueAt ?: Long.MAX_VALUE }) {
+        for (n in active.sortedBy { it.dueAt ?: Long.MAX_VALUE }) {
             val due = n.dueAt ?: continue
             val day = Instant.ofEpochMilli(due).atZone(zone).toLocalDate()
-            val line = "• ${n.title} (${dayFmt.format(day)})"
+            val who = n.who?.takeIf { it.isNotBlank() }?.let { " — $it" }.orEmpty()
+            val line = "• ${n.title}$who (${dayFmt.format(day)})"
             when {
                 day.isBefore(today) -> overdue.add(line)
                 day == today -> todayList.add(line)

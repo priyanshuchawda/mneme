@@ -1,5 +1,6 @@
 package com.mneme.app.remind
 
+import com.mneme.app.data.CardStatus
 import com.mneme.app.data.NoteEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,6 +40,7 @@ class DueDigestTest {
                 note("Old", today.minusDays(2)),
                 note("Now", today),
                 note("Later", today.plusDays(3)),
+                note("Done", today).copy(cardStatus = CardStatus.DONE.storage),
             ),
             today = today,
             zone = zone,
@@ -49,6 +51,7 @@ class DueDigestTest {
         assertTrue(text.contains("Old"))
         assertTrue(text.contains("Now"))
         assertTrue(text.contains("Later"))
+        assertFalse(text.contains("Done"))
     }
 
     @Test
