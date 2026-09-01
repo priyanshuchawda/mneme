@@ -1,6 +1,6 @@
 Qwen3-Embedding-0.6B Fedora smoke test
 Timestamp: 2026-08-23T14:39:04.201320
-Model: /home/priyanshuchawda/iqoo-hackathon/models/phone1/embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf
+Model: /home/priyanshuchawda/retenqo/models/phone1/embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf
 Size: 639150592 bytes (expected 639150592)
 Size OK: True
 

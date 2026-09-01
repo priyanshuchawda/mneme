@@ -1,6 +1,7 @@
 package com.mneme.app.ui.timeline
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,9 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -55,6 +59,16 @@ import com.mneme.app.data.NoteEntity
 import java.text.DateFormat
 import java.util.Date
 
+private fun pitchSubtitle(ui: MnemeUiState): String {
+    if (ui.pitchOverlay == PitchOverlay.Pulse) return "Reading the screen you pointed at."
+    if (ui.pitchOverlay == PitchOverlay.Focus) return "Timed live screen + voice → cards."
+    return when (ui.tab) {
+        MnemeTab.Ask -> "Ask your private memory — cited, on-device."
+        MnemeTab.Settings -> "Control what Retenqo remembers."
+        MnemeTab.Memory -> "Your private memory stays on this phone."
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MnemeHomeScreen(
@@ -67,7 +81,25 @@ fun MnemeHomeScreen(
 ) {
     val notes by viewModel.timeline.collectAsStateWithLifecycle()
     val ui by viewModel.ui.collectAsStateWithLifecycle()
-    val shown = ui.searchResults ?: notes
+    val shown = ui.pinnedNotes ?: ui.searchResults ?: notes
+
+    if (ui.pitchOverlay == PitchOverlay.Messy) {
+        PitchMessyScreen()
+        return
+    }
+    if (ui.pitchOverlay == PitchOverlay.Gallery) {
+        PitchGalleryScreen()
+        return
+    }
+    if (ui.pitchOverlay == PitchOverlay.Action) {
+        var done by remember { mutableStateOf(false) }
+        PitchActionScreen(done = done, onDone = { done = true })
+        return
+    }
+    if (ui.pitchOverlay == PitchOverlay.Live) {
+        PitchLiveFlowScreen()
+        return
+    }
 
     val gradient = Brush.verticalGradient(
         listOf(
@@ -79,7 +111,7 @@ fun MnemeHomeScreen(
     Scaffold(
         containerColor = Color.Transparent,
         floatingActionButton = {
-            if (ui.tab == MnemeTab.Memory) {
+            if (ui.tab == MnemeTab.Memory && ui.pinnedNotes == null && ui.pitchOverlay == PitchOverlay.None) {
                 FloatingActionButton(
                     onClick = onPulse,
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -131,16 +163,17 @@ fun MnemeHomeScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
             Text(
+                text = "PRIVATE MEMORY OS",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            Text(
                 text = "Retenqo",
                 style = MaterialTheme.typography.displayLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                text = when (ui.tab) {
-                    MnemeTab.Memory -> "Your private memory stays on this phone."
-                    MnemeTab.Ask -> "Ask from your cards — dues, waiting, promises."
-                    MnemeTab.Settings -> "Permissions and capture setup."
-                },
+                text = pitchSubtitle(ui),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -158,7 +191,7 @@ fun MnemeHomeScreen(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (ui.tab == MnemeTab.Memory) {
+                if (ui.tab == MnemeTab.Memory && ui.pinnedNotes == null) {
                     TextButton(onClick = viewModel::showBrief) {
                         Text("Brief")
                     }
@@ -187,6 +220,14 @@ fun MnemeHomeScreen(
                     briefHeadline = ui.briefHeadline,
                     briefBody = ui.briefBody,
                     onDismissBrief = viewModel::dismissBrief,
+                    hideSearch = ui.pinnedNotes != null,
+                    lead = {
+                        when (ui.pitchOverlay) {
+                            PitchOverlay.Pulse -> PitchPulseBody()
+                            PitchOverlay.Focus -> PitchFocusBody()
+                            else -> {}
+                        }
+                    },
                 )
                 MnemeTab.Ask -> AskPane(
                     query = ui.askQuery,
@@ -232,6 +273,8 @@ private fun MemoryPane(
     briefHeadline: String,
     briefBody: String,
     onDismissBrief: () -> Unit,
+    hideSearch: Boolean = false,
+    lead: @Composable () -> Unit = {},
 ) {
     if (showBrief) {
         Column(
@@ -243,8 +286,16 @@ private fun MemoryPane(
                 )
                 .padding(16.dp),
         ) {
-            Text(text = "Brief", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(text = "Brief", style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onDismissBrief) {
+                    Text("Got it")
+                }
+            }
             Text(
                 text = briefHeadline,
                 style = MaterialTheme.typography.bodyLarge,
@@ -255,26 +306,30 @@ private fun MemoryPane(
                 text = briefBody,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 10,
+                overflow = TextOverflow.Ellipsis,
             )
-            TextButton(onClick = onDismissBrief) {
-                Text("Got it")
-            }
         }
         Spacer(modifier = Modifier.height(12.dp))
     }
-    TextField(
-        value = query,
-        onValueChange = onQuery,
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        placeholder = { Text(text = "Search memory") },
-        leadingIcon = {
-            Icon(imageVector = Icons.Default.Search, contentDescription = null)
-        },
-        shape = RoundedCornerShape(16.dp),
-        colors = fieldColors(),
-    )
-    Spacer(modifier = Modifier.height(12.dp))
+    lead()
+    if (!hideSearch) {
+        TextField(
+            value = query,
+            onValueChange = onQuery,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text(text = "Search memory") },
+            leadingIcon = {
+                Icon(imageVector = Icons.Default.Search, contentDescription = null)
+            },
+            shape = RoundedCornerShape(16.dp),
+            colors = fieldColors(),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+    } else {
+        Spacer(modifier = Modifier.height(8.dp))
+    }
 
     if (shown.isEmpty()) {
         EmptyMemory(modifier = Modifier.fillMaxSize())
@@ -287,6 +342,7 @@ private fun MemoryPane(
             items(shown, key = { it.id }) { note ->
                 NoteRow(
                     note = note,
+                    showActions = !hideSearch,
                     onDelete = { onDelete(note.id) },
                     onDone = { onDone(note.id) },
                     onSnooze = { onSnooze(note.id) },
@@ -425,9 +481,9 @@ private fun AskPane(
 
 @Composable
 private fun fieldColors() = TextFieldDefaults.colors(
-    focusedContainerColor = MaterialTheme.colorScheme.surface,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-    disabledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
     focusedIndicatorColor = Color.Transparent,
     unfocusedIndicatorColor = Color.Transparent,
     disabledIndicatorColor = Color.Transparent,
@@ -463,7 +519,12 @@ private fun NoteRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(18.dp),
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
                 shape = RoundedCornerShape(18.dp),
             )
             .padding(16.dp),

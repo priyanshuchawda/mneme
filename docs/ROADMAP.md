@@ -1,8 +1,8 @@
-# Retenqo contest roadmap — issues & PRs
-
-**Track:** AI that helps people work smarter, manage time & information, with a local open model at the core.
+# Retenqo roadmap — issues & PRs
 
 **Product:** On-device personal memory — WhatsApp, notifications, and Pulse become structured **cards**, then **brief / Ask / Due**.
+
+Local open models at the core (Qwen + embeddings on phone; larger GGUF on Fedora / 16GB+ devices later).
 
 ---
 
@@ -15,7 +15,7 @@
 5. Due reminders and optional watchers on card conditions.
 6. Settings: which apps to capture, quiet hours.
 
-**Not for contest:** a bot that taps through arbitrary apps for the user.
+**Out of scope:** a bot that taps through arbitrary apps for the user.
 
 **Models:** Qwen on phone now; larger GGUF on Fedora / future 16GB+NPU devices without changing the product shape. Prefer retrieve-top-k cards over huge context windows.
 
@@ -58,6 +58,6 @@ Also: [#1](https://github.com/priyanshuchawda/mneme/issues/1) historical stack �
 
 ---
 
-## Success (hackathon)
+## Success demo
 
 Airplane mode → cards from WA / notifs / Pulse → brief → Ask “what do I owe?” → mark done → optional watcher.

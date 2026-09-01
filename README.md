@@ -2,6 +2,8 @@
 
 Offline personal memory for your phone. Capture what matters from screens, WhatsApp, and files — then ask in plain text. Everything stays on-device.
 
+**Project root:** `~/retenqo` (GitHub repo: [mneme](https://github.com/priyanshuchawda/mneme))
+
 **Author:** [Priyanshu Chawda](https://github.com/priyanshuchawda)
 
 ## Daily loop (text-first)
@@ -56,6 +58,7 @@ Internal Android package stays `com.mneme.app` (safe upgrades). Brand name is **
 ## Docs
 
 - [idea.md](./idea.md) — product vision  
+- [docs/ROADMAP.md](./docs/ROADMAP.md) — GitHub issues & build order
 - [MODELS.md](./MODELS.md) — model catalog  
 - [DEV_DEVICE_REDMi13.md](./DEV_DEVICE_REDMi13.md) — Phone 1 notes  
 - [phone2.md](./phone2.md) — second device notes  

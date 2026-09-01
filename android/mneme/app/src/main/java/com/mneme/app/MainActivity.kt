@@ -147,6 +147,19 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        applyPitchFromIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        applyPitchFromIntent(intent)
+    }
+
+    private fun applyPitchFromIntent(intent: Intent?) {
+        val shot = intent?.getStringExtra("pitch") ?: return
+        if (shot.isBlank()) return
+        viewModel.applyPitchShot(shot)
     }
 
     override fun onResume() {

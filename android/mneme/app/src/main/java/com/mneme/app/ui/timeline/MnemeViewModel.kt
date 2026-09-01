@@ -63,6 +63,9 @@ data class MnemeUiState(
     val showBrief: Boolean = false,
     val briefHeadline: String = "",
     val briefBody: String = "",
+    /** Frontend-only pitch stills (debug intent extra `pitch`). */
+    val pitchOverlay: PitchOverlay = PitchOverlay.None,
+    val pinnedNotes: List<NoteEntity>? = null,
 )
 
 class MnemeViewModel(
@@ -91,6 +94,9 @@ class MnemeViewModel(
     }
 
     fun refreshSetup(openSettingsIfNeeded: Boolean = false) {
+        if (_ui.value.pitchOverlay != PitchOverlay.None || _ui.value.pinnedNotes != null) {
+            return
+        }
         val app = getApplication<Application>()
         val setup = AppSetup.snapshot(app)
         val unseen = !AppSetup.hasSeenSetup(app)
@@ -131,6 +137,126 @@ class MnemeViewModel(
     fun dismissSetupBanner() {
         AppSetup.markSetupSeen(getApplication())
         _ui.value = _ui.value.copy(showSetupBanner = false)
+    }
+
+    /** Debug/pitch stills: canned frontend, no LLM. Driven by MainActivity extra `pitch`. */
+    fun applyPitchShot(shot: String) {
+        AppSetup.markSetupSeen(getApplication())
+        val name = shot.trim().lowercase()
+        val base = _ui.value.copy(
+            showSetupBanner = false,
+            searchQuery = "",
+            searchResults = null,
+            askBusy = false,
+            listening = false,
+            mediaBusy = false,
+            pulsing = false,
+        )
+        _ui.value = when (name) {
+            "live" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Live,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "Live product flow · local memory",
+            )
+            "action" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Action,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "One-tap action · close the commitment",
+            )
+            "messy" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Messy,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "5 apps · 0 cards",
+            )
+            "cards" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.None,
+                pinnedNotes = PitchCards.home,
+                showBrief = false,
+                status = PitchCards.BRIEF_HEADLINE,
+            )
+            "brief" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.None,
+                pinnedNotes = PitchCards.home,
+                showBrief = true,
+                briefHeadline = PitchCards.BRIEF_HEADLINE,
+                briefBody = PitchCards.BRIEF_BODY,
+                status = PitchCards.BRIEF_HEADLINE,
+            )
+            "owe", "airplane" -> base.copy(
+                tab = MnemeTab.Ask,
+                pitchOverlay = PitchOverlay.None,
+                pinnedNotes = PitchCards.dues,
+                showBrief = false,
+                askQuery = "what do I owe?",
+                askAnswer = PitchCards.OWE_ANSWER,
+                askCitations = PitchCards.dues,
+                status = "Answered from 4 notes · on-device",
+            )
+            "conflict" -> base.copy(
+                tab = MnemeTab.Ask,
+                pitchOverlay = PitchOverlay.None,
+                pinnedNotes = PitchCards.conflict,
+                showBrief = false,
+                askQuery = "When is Priya?",
+                askAnswer = PitchCards.CONFLICT_ANSWER,
+                askCitations = PitchCards.conflict,
+                status = "Conflict · 2 sources · same person",
+            )
+            "refuse" -> base.copy(
+                tab = MnemeTab.Ask,
+                pitchOverlay = PitchOverlay.None,
+                pinnedNotes = emptyList(),
+                showBrief = false,
+                askQuery = "What’s my passport number?",
+                askAnswer = PitchCards.REFUSE_ANSWER,
+                askCitations = emptyList(),
+                status = "No matches",
+            )
+            "pulse" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Pulse,
+                pinnedNotes = listOf(PitchCards.otp),
+                showBrief = false,
+                status = "Screenshot processed · image deleted",
+            )
+            "focus" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Focus,
+                pinnedNotes = listOf(
+                    PitchCards.deck,
+                    PitchCards.priyaCal.copy(
+                        id = 9,
+                        title = "Priya · figures",
+                        body = "Same session · person merge by name",
+                        cardType = "waiting",
+                    ),
+                ),
+                showBrief = false,
+                status = "Session 0:12 / 0:15 · on-device",
+            )
+            "gallery" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Gallery,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "Gallery has no capture",
+            )
+            else -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.None,
+                pinnedNotes = PitchCards.home,
+                showBrief = false,
+                status = PitchCards.BRIEF_HEADLINE,
+            )
+        }
     }
 
     fun setTab(tab: MnemeTab) {
@@ -349,11 +475,18 @@ class MnemeViewModel(
     /** Recompute catch-up brief. [autoShow] only opens panel when there is something new. */
     fun refreshBrief(autoShow: Boolean = false) {
         viewModelScope.launch {
+            // Pitch states own their visible cards; startup refresh must not overwrite them.
+            if (_ui.value.pitchOverlay != PitchOverlay.None || _ui.value.pinnedNotes != null) {
+                return@launch
+            }
             val app = getApplication<Application>()
             val last = BriefPrefs.lastOpenAt(app)
             val brief = CatchUpBriefBuilder.build(notes.getAll(), last)
             val body = CatchUpBriefBuilder.formatBody(brief)
             val openPanel = if (autoShow) !brief.isEmpty else true
+            if (_ui.value.pitchOverlay != PitchOverlay.None || _ui.value.pinnedNotes != null) {
+                return@launch
+            }
             _ui.value = _ui.value.copy(
                 showBrief = openPanel,
                 briefHeadline = brief.headline,

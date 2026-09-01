@@ -40,3 +40,13 @@ tools/
 test-assets/*.wav
 android/**/local.properties
 *.so
+
+# Generated pitch/video artifacts and local references
+video/
+output/
+PS8_All-Knighters.pptx
+PS8_All-Knighters.pdf
+pitch-assets/*.pptx
+pitch-assets/*.pdf
+pitch-assets/deck/__pycache__/
+pitch-assets/deck/out/

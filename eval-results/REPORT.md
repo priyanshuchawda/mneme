@@ -182,7 +182,7 @@ Same pipeline, LLM = Qwen3.5-4B-Q4_K_M
 ## How to reproduce
 
 ```bash
-cd iqoo-hackathon
+cd retenqo
 ./scripts/eval-fedora-text-models.sh \
   models/phone1/llm/Qwen3.5-2B-M-TS-Q4_K_M.gguf \
   models/eval/Qwen3.5-4B-Q4_K_M.gguf
