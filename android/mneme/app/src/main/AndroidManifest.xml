@@ -74,6 +74,19 @@
             android:exported="false" />
 
         <receiver
+            android:name=".widget.RetenqoWidgetProvider"
+            android:exported="true"
+            android:label="Retenqo">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_retenqo_info" />
+        </receiver>
+        <receiver android:name=".widget.RetenqoWidgetReceiver" android:exported="false" />
+
+        <receiver
             android:name=".media.BootMediaScheduler"
             android:exported="true"
             android:directBootAware="false">

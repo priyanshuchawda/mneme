@@ -79,9 +79,9 @@ private fun pitchSubtitle(ui: MnemeUiState): String {
     if (ui.pitchOverlay == PitchOverlay.Pulse) return "Reading the screen you pointed at."
     if (ui.pitchOverlay == PitchOverlay.Focus) return "Timed live screen + voice → cards."
     return when (ui.tab) {
-        MnemeTab.Ask -> "Ask your private memory — cited with Gemini."
+        MnemeTab.Ask -> "Ask your personal assistant — every answer is cited."
         MnemeTab.Settings -> "Control what Retenqo remembers."
-        MnemeTab.Memory -> "Your private memory stays on this phone."
+        MnemeTab.Memory -> "Your personal assistant, grounded in what you already know."
     }
 }
 
@@ -121,6 +121,18 @@ fun MnemeHomeScreen(
     }
     if (ui.pitchOverlay == PitchOverlay.Live) {
         PitchLiveFlowScreen()
+        return
+    }
+    if (ui.pitchOverlay == PitchOverlay.Meeting) {
+        PitchMeetingScreen()
+        return
+    }
+    if (ui.pitchOverlay == PitchOverlay.Brief) {
+        PitchDailyBriefScreen()
+        return
+    }
+    if (ui.pitchOverlay == PitchOverlay.Chat) {
+        PitchAssistantChatScreen()
         return
     }
 
@@ -224,7 +236,7 @@ fun MnemeHomeScreen(
                             color = MaterialTheme.colorScheme.primary,
                         )
                         Text(
-                            text = "PRIVATE MEMORY OS",
+                            text = "PERSONAL MEMORY ASSISTANT",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -243,7 +255,7 @@ fun MnemeHomeScreen(
                 text = when (ui.tab) {
                     MnemeTab.Ask -> "Ask anything."
                     MnemeTab.Settings -> "Tune your memory."
-                    MnemeTab.Memory -> "Your second brain."
+                    MnemeTab.Memory -> "Your day, remembered."
                 },
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,

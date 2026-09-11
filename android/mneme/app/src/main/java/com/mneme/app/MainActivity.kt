@@ -31,6 +31,7 @@ import com.mneme.app.ui.timeline.MnemeViewModel
 import com.mneme.app.voice.AlarmScheduler
 import com.mneme.app.voice.TtsSpeaker
 import com.mneme.app.voice.WhisperBridge
+import com.mneme.app.widget.RetenqoWidgetProvider
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -165,6 +166,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshSetup()
+        RetenqoWidgetProvider.updateAll(this)
     }
 
     private fun requestPostNotifications() {

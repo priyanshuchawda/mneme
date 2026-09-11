@@ -160,6 +160,27 @@ class MnemeViewModel(
             pulsing = false,
         )
         _ui.value = when (name) {
+            "chat" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Chat,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "Assistant chat · local demo",
+            )
+            "brief" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Brief,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "Daily brief · Slack + WhatsApp",
+            )
+            "meeting" -> base.copy(
+                tab = MnemeTab.Memory,
+                pitchOverlay = PitchOverlay.Meeting,
+                pinnedNotes = null,
+                showBrief = false,
+                status = "Meeting mode · 4 useful signals saved",
+            )
             "live" -> base.copy(
                 tab = MnemeTab.Memory,
                 pitchOverlay = PitchOverlay.Live,
@@ -186,15 +207,6 @@ class MnemeViewModel(
                 pitchOverlay = PitchOverlay.None,
                 pinnedNotes = PitchCards.home,
                 showBrief = false,
-                status = PitchCards.BRIEF_HEADLINE,
-            )
-            "brief" -> base.copy(
-                tab = MnemeTab.Memory,
-                pitchOverlay = PitchOverlay.None,
-                pinnedNotes = PitchCards.home,
-                showBrief = true,
-                briefHeadline = PitchCards.BRIEF_HEADLINE,
-                briefBody = PitchCards.BRIEF_BODY,
                 status = PitchCards.BRIEF_HEADLINE,
             )
             "owe", "airplane" -> base.copy(
