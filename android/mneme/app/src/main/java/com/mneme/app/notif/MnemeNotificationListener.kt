@@ -16,7 +16,21 @@ import com.mneme.app.data.IngestSources
  */
 class MnemeNotificationListener : NotificationListenerService() {
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        ingest(sbn)
+    }
+
+    private fun ingest(sbn: StatusBarNotification?) {
         if (sbn == null || sbn.isOngoing) return
         if (!NotifTextTriage.isAllowed(sbn.packageName)) return
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
@@ -48,6 +62,12 @@ class MnemeNotificationListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "MnemeNotifListener"
+        @Volatile private var instance: MnemeNotificationListener? = null
+
+        fun syncActiveNotifications() {
+            instance?.getActiveNotifications()?.forEach { instance?.ingest(it) }
+            instance?.let { NotifIngestWorker.enqueueSoon(it.applicationContext, delaySec = 2) }
+        }
 
         fun isEnabled(context: Context): Boolean {
             val cn = ComponentName(context, MnemeNotificationListener::class.java)

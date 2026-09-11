@@ -1,6 +1,6 @@
 # Retenqo
 
-Offline personal memory for your phone. Capture what matters from screens, WhatsApp, and files — then ask in plain text. Everything stays on-device.
+Personal phone assistant and memory for Android. Capture context from screens, notifications, WhatsApp media, voice, and files — then ask in plain text or by voice. Gemini handles generation; OCR, Whisper, storage, and retrieval remain on-device.
 
 **Project root:** `~/retenqo` (GitHub repo: [mneme](https://github.com/priyanshuchawda/mneme))
 
@@ -10,7 +10,7 @@ Offline personal memory for your phone. Capture what matters from screens, Whats
 
 ```
 Pulse (screen) / WA notif / WA media → structured note + embed
-Ask / Due → answer only from your notes (or refuse)
+Ask / Due → grounded memory answers or Gemini help for general phone questions
 Due dates → morning reminder notification
 ```
 
@@ -19,11 +19,11 @@ Due dates → morning reminder notification
 | Job | Engine |
 |-----|--------|
 | OCR | ML Kit |
-| Extract + Ask | Qwen3.5-2B (llama.cpp) |
-| Embeddings | Qwen3-Embedding-0.6B |
+| Extract + Ask | Gemini 3.5 Flash Lite |
+| Embeddings | Lightweight hashed vectors |
 | Due reminders | AlarmManager + notifications |
 
-Voice (Whisper) exists but is optional — text capture and Ask are the product focus.
+Voice (Whisper), notification access, screen capture, and optional accessibility context require explicit Android permissions.
 
 ## App
 

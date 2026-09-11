@@ -1,8 +1,8 @@
 package com.mneme.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -10,76 +10,67 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Product look: ink + sage — quiet, private, everyday (not purple/glow AI chrome)
-private val Ink = Color(0xFF121A17)
-private val Paper = Color(0xFFF3F0E8)
-private val Sage = Color(0xFF2F5D50)
-private val SageSoft = Color(0xFFD7E4DE)
-private val Mist = Color(0xFFE8E6DF)
-private val Ember = Color(0xFFB55B2A)
-
-private val LightColors = lightColorScheme(
-    primary = Sage,
-    onPrimary = Color.White,
-    primaryContainer = SageSoft,
-    onPrimaryContainer = Ink,
-    secondary = Ember,
-    onSecondary = Color.White,
-    background = Paper,
-    onBackground = Ink,
-    surface = Paper,
-    onSurface = Ink,
-    surfaceVariant = Mist,
-    onSurfaceVariant = Color(0xFF3D4742),
-    outline = Color(0xFF8A938E),
-)
+// Retenqo is intentionally dark: a calm, private cockpit with a small amount
+// of signal color reserved for actions and live state.
+private val Ink = Color(0xFFEAF2EF)
+private val Paper = Color(0xFF0B1011)
+private val Sage = Color(0xFF72E0BE)
+private val SageSoft = Color(0xFF153A31)
+private val Mist = Color(0xFF151D1B)
+private val Ember = Color(0xFFFFB38A)
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FBFB0),
-    onPrimary = Ink,
-    primaryContainer = Color(0xFF1E3B33),
-    onPrimaryContainer = SageSoft,
-    secondary = Color(0xFFE0A07A),
+    primary = Sage,
+    onPrimary = Color(0xFF06231B),
+    primaryContainer = SageSoft,
+    onPrimaryContainer = Color(0xFFB9F5DF),
+    secondary = Ember,
     onSecondary = Ink,
-    background = Color(0xFF0E1412),
-    onBackground = Color(0xFFE8E6DF),
-    surface = Color(0xFF0E1412),
-    onSurface = Color(0xFFE8E6DF),
-    surfaceVariant = Color(0xFF1A2420),
-    onSurfaceVariant = Color(0xFFB7C0BB),
-    outline = Color(0xFF6B7570),
+    secondaryContainer = Color(0xFF3A211A),
+    onSecondaryContainer = Color(0xFFFFDCCB),
+    background = Paper,
+    onBackground = Ink,
+    surface = Color(0xFF111819),
+    onSurface = Ink,
+    surfaceVariant = Mist,
+    onSurfaceVariant = Color(0xFF9BAFA8),
+    outline = Color(0xFF33443E),
+    outlineVariant = Color(0xFF22312C),
 )
 
 private val BrandTypography = androidx.compose.material3.Typography(
     displayLarge = TextStyle(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 48.sp,
-        lineHeight = 52.sp,
-        letterSpacing = (-0.5).sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 38.sp,
+        lineHeight = 42.sp,
+        letterSpacing = (-1.1).sp,
     ),
     headlineLarge = TextStyle(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 32.sp,
-        lineHeight = 38.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 31.sp,
+        lineHeight = 36.sp,
+        letterSpacing = (-0.7).sp,
     ),
     headlineMedium = TextStyle(
-        fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.Medium,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 27.sp,
+        letterSpacing = (-0.25).sp,
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
+        fontSize = 17.sp,
+        lineHeight = 22.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -99,8 +90,13 @@ fun MnemeTheme(
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = LightColors,
+        colorScheme = DarkColors,
         typography = BrandTypography,
-        content = content,
-    )
+    ) {
+        Surface(
+            color = DarkColors.background,
+            contentColor = DarkColors.onBackground,
+            content = content,
+        )
+    }
 }

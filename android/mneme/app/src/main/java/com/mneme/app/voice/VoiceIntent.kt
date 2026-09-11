@@ -21,6 +21,13 @@ sealed class VoiceIntent {
     data class Remember(val text: String) : VoiceIntent()
     data class SetAlarm(val hour: Int, val minute: Int, val label: String) : VoiceIntent()
     data object WhatsDue : VoiceIntent()
+    data class Route(val destination: String) : VoiceIntent()
+    data object AccessibilityHelp : VoiceIntent()
+    data object Capabilities : VoiceIntent()
+    data object CheckEmail : VoiceIntent()
+    data object ReadNotifications : VoiceIntent()
+    data class AddCalendar(val title: String) : VoiceIntent()
+    data class CreateTask(val text: String) : VoiceIntent()
 }
 
 object VoiceIntentRouter {
@@ -28,12 +35,36 @@ object VoiceIntentRouter {
         """(?i)\b(?:set\s+(?:an?\s+)?alarm|wake\s+me|remind\s+me)\b.*?\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b""",
     )
     private val rememberRe = Regex("""(?i)^\s*(?:remember|save|note)\b[:\s]+(.+)$""")
+    private val routeRe = Regex("""(?i)^\s*(?:navigate|route|directions?|take me|how do i get)\s+(?:to\s+)?(.+)$""")
+    private val calendarRe = Regex("""(?i)^\s*(?:add|put|create|schedule)\s+(.+?)\s+(?:to|in|on)\s+(?:my\s+)?calendar\s*$""")
+    private val taskRe = Regex("""(?i)^\s*(?:make|create|add)\s+(?:a\s+)?task\s*[:\-]?\s*(.+)$""")
 
     fun route(transcript: String): VoiceIntent {
         val t = transcript.trim()
         if (t.isBlank()) return VoiceIntent.Query("")
 
         if (DueDigest.isDueQuery(t)) return VoiceIntent.WhatsDue
+        if (Regex("""(?i)\bwhat can you do|what do you do|your capabilities|help me with my phone\b""").containsMatchIn(t)) {
+            return VoiceIntent.Capabilities
+        }
+        if (Regex("""(?i)\b(check|read|open|show)\b.*\b(email|mail|gmail)\b""").containsMatchIn(t)) {
+            return VoiceIntent.CheckEmail
+        }
+        if (Regex("""(?i)\b(read|show|check)\b.*\b(notification|notifications|whatsapp messages?)\b""").containsMatchIn(t)) {
+            return VoiceIntent.ReadNotifications
+        }
+        calendarRe.find(t)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }?.let {
+            return VoiceIntent.AddCalendar(it)
+        }
+        taskRe.find(t)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }?.let {
+            return VoiceIntent.CreateTask(it)
+        }
+        if (Regex("""(?i)\b(disabled|wheelchair|blind|low vision|accessibility|help me get around)\b""").containsMatchIn(t)) {
+            return VoiceIntent.AccessibilityHelp
+        }
+        routeRe.find(t)?.groupValues?.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }?.let {
+            return VoiceIntent.Route(it)
+        }
 
         alarmRe.find(t)?.let { m ->
             var hour = m.groupValues[1].toIntOrNull() ?: return@let

@@ -24,7 +24,7 @@ data class ExtractedNote(
 /**
  * Text → structured memory card.
  *
- * Pipeline: [RulesExtract] first; local Qwen only when rules are uncertain.
+ * Pipeline: [RulesExtract] first; Gemini only when rules are uncertain.
  */
 object NoteExtractor {
     suspend fun extract(llm: LlmBridge?, ocrText: String): ExtractedNote {

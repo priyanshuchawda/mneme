@@ -23,6 +23,7 @@ data class AppSetupStatus(
     val microphone: Boolean,
     val exactAlarms: Boolean,
     val allFilesAccess: Boolean,
+    val accessibilityService: Boolean = false,
 ) {
     /** Needed for due reminders + ingest feedback. */
     val canNotify: Boolean get() = postNotifications
@@ -79,6 +80,10 @@ object AppSetup {
         } else {
             true
         }
+        val accessibility = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        )?.split(':')?.any { it.contains(context.packageName) } == true
         return AppSetupStatus(
             postNotifications = post,
             notifListener = MnemeNotificationListener.isEnabled(context),
@@ -86,6 +91,7 @@ object AppSetup {
             microphone = mic,
             exactAlarms = exact,
             allFilesAccess = allFiles,
+            accessibilityService = accessibility,
         )
     }
 
@@ -124,6 +130,13 @@ object AppSetup {
                 data = Uri.parse("package:${context.packageName}")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
+        )
+    }
+
+    fun openAccessibilitySettings(context: Context) {
+        context.startActivity(
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }
 }

@@ -32,4 +32,13 @@ class VoiceIntentRouterTest {
         val i = VoiceIntentRouter.route("what's due today")
         assertTrue(i is VoiceIntent.WhatsDue)
     }
+
+    @Test
+    fun routesPhoneActions() {
+        assertTrue(VoiceIntentRouter.route("what can you do with my phone") is VoiceIntent.Capabilities)
+        assertTrue(VoiceIntentRouter.route("check my email") is VoiceIntent.CheckEmail)
+        assertTrue(VoiceIntentRouter.route("read my WhatsApp notifications") is VoiceIntent.ReadNotifications)
+        assertTrue(VoiceIntentRouter.route("add dentist appointment to my calendar") is VoiceIntent.AddCalendar)
+        assertTrue(VoiceIntentRouter.route("make a task buy groceries") is VoiceIntent.CreateTask)
+    }
 }

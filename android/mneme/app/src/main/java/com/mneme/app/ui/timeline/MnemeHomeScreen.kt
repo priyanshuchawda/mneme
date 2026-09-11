@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.RadioButtonChecked
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -36,6 +38,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,10 +49,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,7 +79,7 @@ private fun pitchSubtitle(ui: MnemeUiState): String {
     if (ui.pitchOverlay == PitchOverlay.Pulse) return "Reading the screen you pointed at."
     if (ui.pitchOverlay == PitchOverlay.Focus) return "Timed live screen + voice → cards."
     return when (ui.tab) {
-        MnemeTab.Ask -> "Ask your private memory — cited, on-device."
+        MnemeTab.Ask -> "Ask your private memory — cited with Gemini."
         MnemeTab.Settings -> "Control what Retenqo remembers."
         MnemeTab.Memory -> "Your private memory stays on this phone."
     }
@@ -82,6 +98,13 @@ fun MnemeHomeScreen(
     val notes by viewModel.timeline.collectAsStateWithLifecycle()
     val ui by viewModel.ui.collectAsStateWithLifecycle()
     val shown = ui.pinnedNotes ?: ui.searchResults ?: notes
+    val motion = rememberInfiniteTransition(label = "ret-enqo-motion")
+    val statusAlpha by motion.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "status-pulse",
+    )
 
     if (ui.pitchOverlay == PitchOverlay.Messy) {
         PitchMessyScreen()
@@ -102,18 +125,26 @@ fun MnemeHomeScreen(
     }
 
     val gradient = Brush.verticalGradient(
-        listOf(
-            MaterialTheme.colorScheme.background,
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        )
+        0f to Color(0xFF101817),
+        0.48f to MaterialTheme.colorScheme.background,
+        1f to Color(0xFF090D0E),
     )
 
     Scaffold(
         containerColor = Color.Transparent,
         floatingActionButton = {
             if (ui.tab == MnemeTab.Memory && ui.pinnedNotes == null && ui.pitchOverlay == PitchOverlay.None) {
+                val fabScale by animateFloatAsState(
+                    targetValue = if (ui.pulsing) 0.92f else 1f,
+                    animationSpec = tween(180),
+                    label = "pulse-scale",
+                )
                 FloatingActionButton(
                     onClick = onPulse,
+                    modifier = Modifier.graphicsLayer {
+                        scaleX = fabScale
+                        scaleY = fabScale
+                    },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(18.dp),
@@ -126,18 +157,26 @@ fun MnemeHomeScreen(
             }
         },
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)) {
+            NavigationBar(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(24.dp)),
+                containerColor = Color(0xFF111A17),
+                tonalElevation = 0.dp,
+            ) {
                 NavigationBarItem(
                     selected = ui.tab == MnemeTab.Memory,
                     onClick = { viewModel.setTab(MnemeTab.Memory) },
                     icon = { Icon(Icons.Outlined.AutoStories, contentDescription = null) },
                     label = { Text("Memory") },
+                    colors = navItemColors(),
                 )
                 NavigationBarItem(
                     selected = ui.tab == MnemeTab.Ask,
                     onClick = { viewModel.setTab(MnemeTab.Ask) },
                     icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
                     label = { Text("Ask") },
+                    colors = navItemColors(),
                 )
                 NavigationBarItem(
                     selected = ui.tab == MnemeTab.Settings,
@@ -149,6 +188,7 @@ fun MnemeHomeScreen(
                         )
                     },
                     label = { Text("Settings") },
+                    colors = navItemColors(),
                 )
             }
         },
@@ -162,22 +202,58 @@ fun MnemeHomeScreen(
                 .padding(horizontal = 20.dp),
         ) {
             Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(13.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("R", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium)
+                    }
+                    Spacer(modifier = Modifier.size(10.dp))
+                    Column {
+                        Text(
+                            text = "RETENQO",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = "PRIVATE MEMORY OS",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .graphicsLayer { alpha = statusAlpha }
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        .border(3.dp, MaterialTheme.colorScheme.primary.copy(alpha = .18f), CircleShape),
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "PRIVATE MEMORY OS",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-            Text(
-                text = "Retenqo",
-                style = MaterialTheme.typography.displayLarge,
+                text = when (ui.tab) {
+                    MnemeTab.Ask -> "Ask anything."
+                    MnemeTab.Settings -> "Tune your memory."
+                    MnemeTab.Memory -> "Your second brain."
+                },
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
                 text = pitchSubtitle(ui),
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -192,14 +268,14 @@ fun MnemeHomeScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (ui.tab == MnemeTab.Memory && ui.pinnedNotes == null) {
-                    TextButton(onClick = viewModel::showBrief) {
+                    TextButton(onClick = viewModel::showBrief, contentPadding = PaddingValues(horizontal = 8.dp)) {
                         Text("Brief")
                     }
-                    TextButton(onClick = viewModel::showWhatsDue) {
+                    TextButton(onClick = viewModel::showWhatsDue, contentPadding = PaddingValues(horizontal = 8.dp)) {
                         Text("Due")
                     }
                     if (ui.showSetupBanner) {
-                        TextButton(onClick = { viewModel.setTab(MnemeTab.Settings) }) {
+                        TextButton(onClick = { viewModel.setTab(MnemeTab.Settings) }, contentPadding = PaddingValues(horizontal = 8.dp)) {
                             Text("Setup")
                         }
                     }
@@ -249,6 +325,7 @@ fun MnemeHomeScreen(
                     onOpenNotifListener = viewModel::openNotifAccessSettings,
                     onRequestMedia = onRequestMedia,
                     onOpenAllFiles = viewModel::openAllFilesAccess,
+                    onOpenAccessibility = viewModel::openAccessibilitySettings,
                     onRequestMic = onRequestMicPermission,
                     onOpenExactAlarm = viewModel::openExactAlarmSettings,
                     onScanWhatsApp = viewModel::scanWhatsAppMedia,
@@ -276,42 +353,6 @@ private fun MemoryPane(
     hideSearch: Boolean = false,
     lead: @Composable () -> Unit = {},
 ) {
-    if (showBrief) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-                    RoundedCornerShape(18.dp),
-                )
-                .padding(16.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(text = "Brief", style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = onDismissBrief) {
-                    Text("Got it")
-                }
-            }
-            Text(
-                text = briefHeadline,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = briefBody,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 10,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-    }
     lead()
     if (!hideSearch) {
         TextField(
@@ -331,14 +372,60 @@ private fun MemoryPane(
         Spacer(modifier = Modifier.height(8.dp))
     }
 
+    if (showBrief) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF10261F), RoundedCornerShape(18.dp))
+                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .18f), RoundedCornerShape(18.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("New since last open", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(briefHeadline, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = briefBody.replace("New since last open:", "").trim().replace("\n", " · "),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(onClick = onDismissBrief, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Dismiss") }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+    }
+
     if (shown.isEmpty()) {
-        EmptyMemory(modifier = Modifier.fillMaxSize())
+        EmptyMemory(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 52.dp),
+            title = if (showBrief) "No saved cards yet" else "Nothing saved yet",
+            body = if (showBrief) "New activity is shown above. Save a note or use Pulse to build memory." else "Tap Pulse on anything worth remembering.",
+        )
     } else {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 96.dp),
+            contentPadding = PaddingValues(bottom = 148.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Column {
+                        Text(if (hideSearch) "Due now" else "All memories", style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            if (hideSearch) "Needs your attention" else "Your private context, organized",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text("${shown.size} ${if (shown.size == 1) "card" else "cards"}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                }
+            }
             items(shown, key = { it.id }) { note ->
                 NoteRow(
                     note = note,
@@ -365,71 +452,84 @@ private fun AskPane(
     onMicDown: () -> Unit,
     onMicUp: () -> Unit,
 ) {
-    TextField(
-        value = query,
-        onValueChange = onQuery,
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true,
-        enabled = !busy && !listening,
-        placeholder = { Text(text = "What do I owe? / waiting on whom?") },
-        shape = RoundedCornerShape(16.dp),
-        colors = fieldColors(),
+    val micScale by animateFloatAsState(
+        targetValue = if (listening) 1.08f else 1f,
+        animationSpec = tween(220),
+        label = "mic-scale",
     )
-    Spacer(modifier = Modifier.height(8.dp))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+    if (answer.isNullOrBlank() && !busy) {
+        AssistantHero(listening = listening)
+        Spacer(modifier = Modifier.height(14.dp))
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(22.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .45f), RoundedCornerShape(22.dp))
+            .padding(10.dp),
     ) {
-        TextButton(
-            onClick = onAsk,
-            enabled = !busy && !listening && query.isNotBlank(),
+        TextField(
+            value = query,
+            onValueChange = onQuery,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            enabled = !busy && !listening,
+            placeholder = { Text(text = "Ask your memory anything…") },
+            shape = RoundedCornerShape(16.dp),
+            colors = composerFieldColors(),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                when {
-                    listening -> "Listening…"
-                    busy -> "Thinking on-device…"
-                    else -> "Ask memory"
-                },
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .background(
-                    color = if (listening) {
-                        MaterialTheme.colorScheme.secondary
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                    shape = CircleShape,
-                )
-                .pointerInput(busy) {
-                    detectTapGestures(
-                        onPress = {
-                            if (busy) return@detectTapGestures
-                            onMicDown()
-                            try {
-                                tryAwaitRelease()
-                            } finally {
-                                onMicUp()
-                            }
-                        },
+            QuickPrompt("What do I owe?", onClick = { onQuery("What do I owe?") })
+            QuickPrompt("Notifications", onClick = { onQuery("Read my notifications") })
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(
+                onClick = onAsk,
+                enabled = !busy && !listening && query.isNotBlank(),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = MaterialTheme.colorScheme.primary)
+            }
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .graphicsLayer {
+                        scaleX = micScale
+                        scaleY = micScale
+                    }
+                    .background(
+                        color = if (listening) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                        shape = CircleShape,
                     )
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Default.Mic,
-                contentDescription = "Hold to talk",
-                tint = MaterialTheme.colorScheme.onPrimary,
-            )
+                    .pointerInput(busy) {
+                        detectTapGestures(
+                            onPress = {
+                                if (busy) return@detectTapGestures
+                                onMicDown()
+                                try {
+                                    tryAwaitRelease()
+                                } finally {
+                                    onMicUp()
+                                }
+                            },
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Mic, contentDescription = "Hold to talk", tint = MaterialTheme.colorScheme.onPrimary)
+            }
         }
     }
     Text(
-        text = "Hold mic to ask by voice",
-        style = MaterialTheme.typography.labelLarge,
+        text = when {
+            listening -> "Listening… release to send"
+            busy -> "Retenqo is thinking…"
+            else -> "Type or hold the mic to talk"
+        },
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp),
     )
     Spacer(modifier = Modifier.height(12.dp))
 
@@ -441,27 +541,31 @@ private fun AskPane(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 32.dp),
+        contentPadding = PaddingValues(bottom = 148.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (!answer.isNullOrBlank()) {
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
-                            RoundedCornerShape(18.dp),
-                        )
-                        .padding(16.dp),
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 4 } + expandVertically(tween(260)),
+                    exit = fadeOut(tween(120)),
                 ) {
-                    Text(
-                        text = "Answer",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(text = answer, style = MaterialTheme.typography.bodyLarge)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF10261F), RoundedCornerShape(18.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .22f), RoundedCornerShape(18.dp))
+                            .padding(16.dp),
+                    ) {
+                        Text(
+                            text = "Answer",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = answer, style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         }
@@ -480,6 +584,100 @@ private fun AskPane(
 }
 
 @Composable
+private fun AssistantHero(listening: Boolean) {
+    val orbScale by animateFloatAsState(
+        targetValue = if (listening) 1.12f else 1f,
+        animationSpec = tween(420),
+        label = "assistant-orb",
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(146.dp)
+            .background(
+                Brush.linearGradient(listOf(Color(0xFF183E35), Color(0xFF10191A), Color(0xFF10151D))),
+                RoundedCornerShape(24.dp),
+            )
+            .border(1.dp, Color(0xFF4BAE91).copy(alpha = .26f), RoundedCornerShape(24.dp))
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(82.dp)
+                .graphicsLayer { scaleX = orbScale; scaleY = orbScale }
+                .background(
+                    Brush.radialGradient(listOf(Color(0xFFD5FFF0), Color(0xFF55D9B2), Color(0xFF1A5C4B))),
+                    CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(Color(0xFF092019).copy(alpha = .92f), CircleShape),
+            )
+        }
+        Spacer(modifier = Modifier.size(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                if (listening) "Listening" else "Private memory online",
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.White,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                if (listening) "Release the mic when you’re done." else "Ask by text or voice. Answers stay grounded in your data.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFFB7D6CC),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("GEMINI  ·  CITED", style = MaterialTheme.typography.labelMedium, color = Color(0xFF72E0BE))
+        }
+    }
+}
+
+@Composable
+private fun MemoryHero(memoryCount: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Brush.linearGradient(listOf(Color(0xFF182A27), Color(0xFF11191A))),
+                RoundedCornerShape(22.dp),
+            )
+            .border(1.dp, Color(0xFF3B6659).copy(alpha = .45f), RoundedCornerShape(22.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Memory at a glance", style = MaterialTheme.typography.titleLarge, color = Color.White)
+            Text("Your private context, organized.", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF9DB9B0))
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(memoryCount.toString(), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+            Text("cards", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun QuickPrompt(label: String, onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+        shape = RoundedCornerShape(50),
+        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+    }
+}
+
+@Composable
 private fun fieldColors() = TextFieldDefaults.colors(
     focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -490,13 +688,40 @@ private fun fieldColors() = TextFieldDefaults.colors(
 )
 
 @Composable
-private fun EmptyMemory(modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+private fun composerFieldColors() = TextFieldDefaults.colors(
+    focusedContainerColor = Color.Transparent,
+    unfocusedContainerColor = Color.Transparent,
+    disabledContainerColor = Color.Transparent,
+    focusedIndicatorColor = Color.Transparent,
+    unfocusedIndicatorColor = Color.Transparent,
+    disabledIndicatorColor = Color.Transparent,
+)
+
+@Composable
+private fun navItemColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedTextColor = MaterialTheme.colorScheme.primary,
+    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
+@Composable
+private fun EmptyMemory(
+    modifier: Modifier = Modifier,
+    title: String = "Nothing saved yet",
+    body: String = "Tap Pulse on anything worth remembering.",
+) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(text = "Nothing saved yet", style = MaterialTheme.typography.headlineMedium)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Tap Pulse on anything worth remembering.",
+                text = body,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -515,6 +740,15 @@ private fun NoteRow(
 ) {
     val type = note.type()
     val status = note.status()
+    val bodyText = note.body.trim()
+    val titleText = note.title.removePrefix("Task:").trim()
+    val cleanedBody = bodyText
+        .removePrefix(note.source)
+        .trimStart(' ', '\n', '·', ':')
+        .trim()
+    val showBody = cleanedBody.isNotBlank() &&
+        cleanedBody != titleText &&
+        !note.title.contains(cleanedBody, ignoreCase = true)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -524,10 +758,10 @@ private fun NoteRow(
             )
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f),
                 shape = RoundedCornerShape(18.dp),
             )
-            .padding(16.dp),
+        .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -556,7 +790,7 @@ private fun NoteRow(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = note.title,
+                    text = titleText,
                     style = MaterialTheme.typography.titleLarge,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -592,13 +826,15 @@ private fun NoteRow(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = note.body,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 6,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        if (showBody) {
+            Text(
+                text = cleanedBody,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         if (showActions) {
             Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

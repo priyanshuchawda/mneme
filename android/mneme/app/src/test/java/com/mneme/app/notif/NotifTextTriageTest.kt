@@ -15,7 +15,7 @@ class NotifTextTriageTest {
         assertTrue(NotifTextTriage.isAllowed("com.google.android.apps.messaging"))
         assertTrue(NotifTextTriage.isAllowed("org.telegram.messenger"))
         assertEquals("Gmail", NotifTextTriage.sourceLabel("com.google.android.gm"))
-        assertFalse(NotifTextTriage.isAllowed("com.instagram.android"))
+        assertTrue(NotifTextTriage.isAllowed("com.instagram.android"))
         assertFalse(NotifTextTriage.isAllowed(null))
         assertTrue(NotifTextTriage.isWhatsApp("com.whatsapp.w4b"))
     }
