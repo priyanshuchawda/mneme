@@ -3,9 +3,8 @@ package com.mneme.app.notif
 import com.mneme.app.ai.PulsePipelineHints
 
 /**
- * Important-app allowlist + text triage.
- * We do **not** ingest every notification — only known useful packages,
- * then the same importance / junk filters as Pulse.
+ * Notification text triage. Third-party app notifications are accepted after
+ * Notification Access is granted; known system noise is still discarded.
  */
 object NotifTextTriage {
     /** package → short source label for the note */
@@ -34,12 +33,16 @@ object NotifTextTriage {
         """(?i)^(📷|🎥|🎙|🎵|📄|sticker|gif|contact card|location)$""",
     )
 
+    private val SYSTEM_PACKAGES = Regex(
+        """^(android|com\.android\.systemui|com\.samsung\.android\.systemui|com\.mneme\.app(?:\.debug)?)$""",
+    )
+
     /** @deprecated prefer [sourceLabel]; kept for tests / WA-only checks */
     fun isWhatsApp(packageName: String?): Boolean =
         packageName == "com.whatsapp" || packageName == "com.whatsapp.w4b"
 
     fun sourceLabel(packageName: String?): String? =
-        packageName?.let { ALLOWED[it] }
+        packageName?.takeUnless { SYSTEM_PACKAGES.matches(it) }?.let { ALLOWED[it] ?: it }
 
     fun isAllowed(packageName: String?): Boolean = sourceLabel(packageName) != null
 
@@ -70,7 +73,6 @@ object NotifTextTriage {
         }
         if (combined.length < 12) return null
         if (PulsePipelineHints.shouldSkipIngest(combined)) return null
-        if (!PulsePipelineHints.looksImportant(combined) && combined.length < 48) return null
         return combined.take(1_200)
     }
 }

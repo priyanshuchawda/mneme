@@ -14,20 +14,20 @@ object ModelPaths {
         "/sdcard/Mneme/models/phone1",
     )
 
-    fun llmGguf(context: Context): File =
-        resolve(context, "llm", "Qwen3.5-2B-M-TS-Q4_K_M.gguf")
-
     fun whisperBin(context: Context): File =
         resolve(context, "whisper", "ggml-base-q5_1.bin")
 
     fun embedGguf(context: Context): File =
         resolve(context, "embed/qwen3", "Qwen3-Embedding-0.6B-Q8_0.gguf")
 
-    fun ensureLlmAccessible(context: Context): File =
-        ensureAccessible(context, "llm", "Qwen3.5-2B-M-TS-Q4_K_M.gguf", minBytes = 1_000_000L)
-
     fun ensureWhisperAccessible(context: Context): File =
-        ensureAccessible(context, "whisper", "ggml-base-q5_1.bin", minBytes = 1_000_000L)
+        ensureAccessible(
+            context,
+            "whisper",
+            "ggml-base-q5_1.bin",
+            minBytes = 1_000_000L,
+            assetName = "ggml-base-q5_1.bin",
+        )
 
     fun ensureEmbedAccessible(context: Context): File =
         ensureAccessible(
@@ -52,6 +52,7 @@ object ModelPaths {
         subdir: String,
         name: String,
         minBytes: Long,
+        assetName: String? = null,
     ): File {
         val preferred = resolve(context, subdir, name)
         if (preferred.isFile && preferred.canRead() && preferred.length() > minBytes) return preferred
@@ -60,6 +61,16 @@ object ModelPaths {
         val shared = SHARED_ROOTS
             .map { File("$it/$subdir/$name") }
             .firstOrNull { it.isFile }
+        if (shared == null && assetName != null) {
+            private.parentFile?.mkdirs()
+            context.assets.open(assetName).use { input ->
+                private.outputStream().use { output -> input.copyTo(output) }
+            }
+            require(private.isFile && private.length() > minBytes) {
+                "Failed to stage bundled model at ${private.absolutePath}"
+            }
+            return private
+        }
         require(shared != null) {
             "Model missing. Push to ${SHARED_ROOTS[0]}/$subdir/$name (or legacy Mneme path) or ${private.absolutePath}"
         }

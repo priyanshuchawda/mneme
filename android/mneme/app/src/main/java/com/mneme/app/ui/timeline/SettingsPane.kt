@@ -1,6 +1,7 @@
 package com.mneme.app.ui.timeline
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ fun SettingsPane(
     onOpenNotifListener: () -> Unit,
     onRequestMedia: () -> Unit,
     onOpenAllFiles: () -> Unit,
+    onOpenAccessibility: () -> Unit,
     onRequestMic: () -> Unit,
     onOpenExactAlarm: () -> Unit,
     onScanWhatsApp: () -> Unit,
@@ -82,7 +84,7 @@ fun SettingsPane(
 
         SetupRow(
             title = "Notification access",
-            subtitle = "Read important alerts from WhatsApp, Gmail, SMS, Telegram, and more",
+            subtitle = "Read notifications from apps you allow, including WhatsApp, Gmail, SMS, Calendar, and more",
             ok = setup.notifListener,
             actionLabel = if (setup.notifListener) "Manage" else "Enable",
             onAction = onOpenNotifListener,
@@ -124,6 +126,13 @@ fun SettingsPane(
             ok = setup.allFilesAccess,
             actionLabel = if (setup.allFilesAccess) "Manage" else "Open",
             onAction = onOpenAllFiles,
+        )
+        SetupRow(
+            title = "App context access",
+            subtitle = "Optional: let Retenqo understand the foreground app",
+            ok = setup.accessibilityService,
+            actionLabel = if (setup.accessibilityService) "Manage" else "Enable",
+            onAction = onOpenAccessibility,
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -172,10 +181,11 @@ private fun SetupRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
                 RoundedCornerShape(18.dp),
             )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = .35f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -184,21 +194,24 @@ private fun SetupRow(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
             )
+        }
+        Column(horizontalAlignment = Alignment.End) {
             if (showStatus) {
                 Text(
                     text = if (ok) "Ready" else "Needed",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (ok) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.secondary
-                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
                 )
             }
-        }
-        TextButton(onClick = onAction, enabled = enabled) {
-            Text(actionLabel)
+            TextButton(
+                onClick = onAction,
+                enabled = enabled,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+            ) {
+                Text(actionLabel, style = MaterialTheme.typography.labelLarge)
+            }
         }
     }
 }

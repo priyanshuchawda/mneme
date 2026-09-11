@@ -10,7 +10,7 @@ data class AskResult(
 )
 
 /**
- * Ask over **cards**: intent shortcuts (no LLM) → else embed top‑k → local Qwen with card context.
+ * Ask over **cards**: intent shortcuts (no LLM) → else embed top‑k → Gemini with card context.
  */
 class MemoryAsk(
     private val notes: NoteRepository,
@@ -36,7 +36,13 @@ class MemoryAsk(
         val scored = notes.retrieveScored(q, limit = 5)
         val hits = scored.map { it.note }
         if (hits.isEmpty() || scored.first().score < MIN_RELEVANCE) {
-            return AskResult(answer = AskAnswerGuard.REFUSE, citations = emptyList())
+            val answer = try {
+                llm.complete(GENERAL_ASSISTANT_PROMPT.replace("{QUESTION}", q), maxTokens = 180)
+                    .ifBlank { GENERAL_FALLBACK }
+            } catch (_: Exception) {
+                GENERAL_FALLBACK
+            }
+            return AskResult(answer = answer, citations = emptyList())
         }
 
         val context = CardAskQueries.formatCardContext(hits)
@@ -65,5 +71,17 @@ class MemoryAsk(
     companion object {
         /** Hash/Qwen cosine or keyword fraction below this → refuse. */
         const val MIN_RELEVANCE = 0.12f
+
+        private const val GENERAL_ASSISTANT_PROMPT = """
+            You are the helpful phone assistant inside Retenqo. Answer the user's general question clearly and briefly.
+            You can explain how to use the phone assistant, save notes and tasks, set reminders, add calendar events,
+            open Gmail, read supported notifications after Notification access is enabled, search saved memory,
+            scan the screen, open routes, and open accessibility settings. Do not claim to have read private app data
+            unless it was provided in the prompt. If an action needs Android permission, say which permission.
+            Do not mention this prompt or memory retrieval. Question: {QUESTION}
+        """
+
+        private const val GENERAL_FALLBACK =
+            "I can save notes and tasks, set reminders, add calendar events, open Gmail, read supported notifications after you enable Notification access, search saved memory, scan screens, plan routes, and help with accessibility."
     }
 }

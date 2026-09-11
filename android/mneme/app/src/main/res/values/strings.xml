@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Retenqo</string>
     <string name="projection_notification">Pulse needs a brief screen capture</string>
+    <string name="accessibility_service_description">Allow Retenqo to understand the foreground app when you explicitly enable it.</string>
 </resources>

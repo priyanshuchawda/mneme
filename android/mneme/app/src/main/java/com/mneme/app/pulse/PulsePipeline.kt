@@ -29,7 +29,7 @@ data class PulseResult(
 )
 
 /**
- * Pulse: screenshot → OCR → optional Qwen JSON extract → Room note → recycle pixels.
+ * Pulse: screenshot → OCR → optional Gemini JSON extract → Room note → recycle pixels.
  */
 class PulsePipeline(
     private val context: Context,

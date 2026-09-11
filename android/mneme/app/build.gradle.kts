@@ -16,6 +16,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        val geminiApiKey = project.findProperty("gemini.api.key")?.toString() ?: ""
+        buildConfigField("String", "GEMINI_API_KEY", "\"${geminiApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -44,24 +46,13 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     kotlin {
-        jvmToolchain(17)
+        jvmToolchain(21)
     }
 
-    packaging {
-        jniLibs {
-            useLegacyPackaging = true
-            pickFirsts += listOf(
-                "lib/arm64-v8a/libggml-base.so",
-                "lib/arm64-v8a/libggml-cpu.so",
-                "lib/arm64-v8a/libggml.so",
-                "**/libggml*.so",
-            )
-        }
-    }
 }
 
 configurations.all {
@@ -73,7 +64,6 @@ configurations.all {
 }
 
 dependencies {
-    implementation(project(":llama-lib"))
     implementation(project(":whisper-lib"))
 
     implementation(libs.androidx.core.ktx)

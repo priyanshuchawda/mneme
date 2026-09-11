@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import android.content.Intent
+import android.net.Uri
+import android.provider.CalendarContract
 import androidx.lifecycle.viewModelScope
 import com.mneme.app.ai.AskResult
 import com.mneme.app.ai.LlmBridge
@@ -128,6 +131,10 @@ class MnemeViewModel(
 
     fun openAllFilesAccess() {
         AppSetup.openAllFilesAccess(getApplication())
+    }
+
+    fun openAccessibilitySettings() {
+        AppSetup.openAccessibilitySettings(getApplication())
     }
 
     fun openAppDetails() {
@@ -338,6 +345,80 @@ class MnemeViewModel(
         viewModelScope.launch {
             _ui.value = _ui.value.copy(askBusy = true, askAnswer = null, askQuery = text)
             when (val intent = VoiceIntentRouter.route(text)) {
+                is VoiceIntent.Capabilities -> {
+                    val msg = "I can save notes and tasks, set reminders, add calendar events, open Gmail, read supported WhatsApp and app notifications after you enable Notification access, search your saved memory, scan screens, and help with routes and accessibility."
+                    _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = "Phone assistant ready")
+                    tts.speak(msg.take(220))
+                }
+                is VoiceIntent.CheckEmail -> {
+                    val launch = getApplication<Application>().packageManager
+                        .getLaunchIntentForPackage("com.google.android.gm")
+                        ?: Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    getApplication<Application>().startActivity(launch)
+                    val msg = "Opening Gmail."
+                    _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = msg)
+                    tts.speak(msg)
+                }
+                is VoiceIntent.ReadNotifications -> {
+                    if (!MnemeNotificationListener.isEnabled(getApplication())) {
+                        MnemeNotificationListener.openSettings(getApplication())
+                        val msg = "Enable Notification access so I can read supported WhatsApp, Gmail, SMS, and calendar notifications."
+                        _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = "Notification access needed")
+                        tts.speak(msg.take(220))
+                    } else {
+                        MnemeNotificationListener.syncActiveNotifications()
+                        val msg = "I’m reading the latest supported notifications into your memory. Ask again in a few seconds."
+                        _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = "Reading notifications…")
+                        tts.speak(msg.take(220))
+                    }
+                }
+                is VoiceIntent.AddCalendar -> {
+                    val calendar = Intent(Intent.ACTION_INSERT).apply {
+                        data = CalendarContract.Events.CONTENT_URI
+                        putExtra(CalendarContract.Events.TITLE, intent.title)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    getApplication<Application>().startActivity(calendar)
+                    val msg = "Opening Calendar to add ${intent.title}."
+                    _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = msg)
+                    tts.speak(msg)
+                }
+                is VoiceIntent.CreateTask -> {
+                    val id = notes.saveIfNew(
+                        title = "Task: ${intent.text.take(80)}",
+                        body = intent.text,
+                        source = "Task",
+                    )
+                    val msg = if (id != null) "Task saved to Memory." else "That task is already saved."
+                    _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = msg)
+                    tts.speak(msg)
+                }
+                is VoiceIntent.Route -> {
+                    val msg = "Opening directions to ${intent.destination}"
+                    try {
+                        getApplication<Application>().startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${Uri.encode(intent.destination)}"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    } catch (_: Exception) {
+                        getApplication<Application>().startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(intent.destination)}"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                    _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = msg)
+                    tts.speak(msg)
+                }
+                is VoiceIntent.AccessibilityHelp -> {
+                    val msg = "Opening accessibility settings. You can enable TalkBack, magnification, and switch access there."
+                    getApplication<Application>().startActivity(
+                        Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                    _ui.value = _ui.value.copy(askBusy = false, askAnswer = msg, askCitations = emptyList(), status = "Accessibility help")
+                    tts.speak(msg)
+                }
                 is VoiceIntent.WhatsDue -> {
                     _ui.value = _ui.value.copy(status = "Checking due dates…")
                     val result: AskResult = try {
