@@ -16,8 +16,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        val geminiApiKey = project.findProperty("gemini.api.key")?.toString() ?: ""
-        buildConfigField("String", "GEMINI_API_KEY", "\"${geminiApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -65,6 +63,7 @@ configurations.all {
 
 dependencies {
     implementation(project(":whisper-lib"))
+    implementation(project(":llama-runtime"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

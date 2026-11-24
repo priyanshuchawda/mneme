@@ -6,20 +6,30 @@ package com.mneme.app.notif
 object NotifQueueLogic {
     private const val SEP = '\u001f'
 
-    fun encode(source: String, text: String): String = "$source$SEP$text"
+    data class Entry(val source: String, val text: String, val sourceEventId: String? = null)
 
-    fun decode(entry: String): Pair<String, String> {
+    fun encode(source: String, text: String, sourceEventId: String? = null): String =
+        if (sourceEventId.isNullOrBlank()) "$source$SEP$text" else "$source$SEP$text$SEP$sourceEventId"
+
+    fun decodeEntry(entry: String): Entry {
         val i = entry.indexOf(SEP)
-        return if (i <= 0) "Notif" to entry else entry.substring(0, i) to entry.substring(i + 1)
+        if (i <= 0) return Entry("Notif", entry)
+        val eventSeparator = entry.lastIndexOf(SEP)
+        val eventId = entry.substring(eventSeparator + 1).takeIf { eventSeparator > i && it.matches(Regex("[a-fA-F0-9]{64}")) }
+        val textEnd = if (eventId == null) entry.length else eventSeparator
+        return Entry(entry.substring(0, i), entry.substring(i + 1, textEnd), eventId)
     }
 
-    fun offer(existingJson: String, source: String, text: String, max: Int = 12): String {
-        val entry = encode(source, text)
+    /** Pair-compatible adapter retained for existing queue callers. */
+    fun decode(entry: String): Pair<String, String> = decodeEntry(entry).let { it.source to it.text }
+
+    fun offer(existingJson: String, source: String, text: String, max: Int = 12, sourceEventId: String? = null): String {
+        val entry = encode(source, text, sourceEventId)
         val items = parse(existingJson).toMutableList()
         if (items.lastOrNull() == entry) return encodeList(items)
         // Drop spam: same message body already queued (any source)
         val norm = text.replace(Regex("\\s+"), " ").trim().lowercase()
-        if (items.any { decode(it).second.replace(Regex("\\s+"), " ").trim().lowercase() == norm }) {
+        if (items.any { decodeEntry(it).text.replace(Regex("\\s+"), " ").trim().lowercase() == norm }) {
             return encodeList(items)
         }
         items.add(entry)

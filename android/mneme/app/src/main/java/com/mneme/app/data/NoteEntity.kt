@@ -12,6 +12,8 @@ import androidx.room.PrimaryKey
         Index(value = ["cardStatus"]),
         Index(value = ["cardType"]),
         Index(value = ["dueAt"]),
+        Index(value = ["reviewState"]),
+        Index(value = ["sourceEventId"], unique = true),
     ],
 )
 data class NoteEntity(
@@ -35,12 +37,18 @@ data class NoteEntity(
     val statusChangedAt: Long? = null,
     /** When snoozed, hide from active dues until this time. */
     val snoozedUntil: Long? = null,
+    /** New captured commitments stay out of task flows until the user reviews them. */
+    val reviewState: String = CardReviewState.CONFIRMED.storage,
+    /** Hashed upstream event key when the source provides one (e.g. Android notification key). */
+    val sourceEventId: String? = null,
 ) {
     fun type(): CardType = CardType.fromStorage(cardType)
     fun status(): CardStatus = CardStatus.fromStorage(cardStatus)
+    fun review(): CardReviewState = CardReviewState.fromStorage(reviewState)
 
     /** True when the card should count for dues / brief (not done; snooze expired or open). */
     fun isActive(now: Long = System.currentTimeMillis()): Boolean =
+        review() == CardReviewState.CONFIRMED &&
         when (status()) {
             CardStatus.OPEN -> true
             CardStatus.SNOOZED -> snoozedUntil != null && snoozedUntil <= now

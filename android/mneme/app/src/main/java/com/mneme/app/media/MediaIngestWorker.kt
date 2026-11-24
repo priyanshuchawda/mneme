@@ -29,6 +29,10 @@ class MediaIngestWorker(
 
     override suspend fun doWork(): Result {
         val user = inputData.getBoolean(KEY_USER, false)
+        if (!user && !MediaIngestSettings.isPeriodicEnabled(applicationContext)) {
+            Log.i(TAG, "skip: background media scan is disabled")
+            return Result.success()
+        }
         val limit = inputData.getInt(KEY_LIMIT, if (user) 4 else 2)
         val gate = MnemePowerGates.canRunHeavyWork(applicationContext, userInitiated = user)
         if (!gate.ok) {
@@ -41,7 +45,8 @@ class MediaIngestWorker(
 
         val llm = LlmBridge(applicationContext)
         val embedder = MnemeEmbedder(applicationContext, llm)
-        val notes = NoteRepository(MnemeDatabase.get(applicationContext).notes(), embedder)
+        val db = MnemeDatabase.get(applicationContext)
+        val notes = NoteRepository(db.notes(), embedder, db.followThrough())
         val pulse = PulsePipeline(applicationContext, notes, llm)
         val media = MediaIngestPipeline(applicationContext, pulse)
         return try {
@@ -73,6 +78,7 @@ class MediaIngestWorker(
             .build()
 
         fun schedulePeriodic(context: Context) {
+            if (!MediaIngestSettings.isPeriodicEnabled(context)) return
             val req = PeriodicWorkRequestBuilder<MediaIngestWorker>(30, TimeUnit.MINUTES)
                 .setConstraints(constraints())
                 .setInputData(workDataOf(KEY_USER to false, KEY_LIMIT to 2))

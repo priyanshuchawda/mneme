@@ -11,8 +11,8 @@ class BootMediaScheduler : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         val app = context.applicationContext
-        MediaIngestWorker.schedulePeriodic(app)
+        (app as? com.mneme.app.MnemeApp)?.refreshMediaIngest()
         DueReminderScheduler.rescheduleUpcoming(app)
-        Log.i("BootMediaScheduler", "periodic media + due reminders rescheduled")
+        Log.i("BootMediaScheduler", "user-enabled media scan + due reminders restored")
     }
 }

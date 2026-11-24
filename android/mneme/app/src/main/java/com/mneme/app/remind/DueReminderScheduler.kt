@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -28,7 +27,6 @@ object DueReminderScheduler {
     const val EXTRA_TITLE = "title"
 
     fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < 26) return
         val mgr = context.getSystemService(NotificationManager::class.java) ?: return
         if (mgr.getNotificationChannel(CHANNEL_ID) != null) return
         mgr.createNotificationChannel(
@@ -51,7 +49,7 @@ object DueReminderScheduler {
         val am = context.getSystemService(AlarmManager::class.java) ?: return
         val pi = pending(context, noteId, title)
         try {
-            if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
+            if (!am.canScheduleExactAlarms()) {
                 am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)
             } else {
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, pi)

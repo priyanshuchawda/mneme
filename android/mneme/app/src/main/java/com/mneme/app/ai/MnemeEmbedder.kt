@@ -4,7 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** Lightweight on-device embeddings for retrieval; text generation is handled by Gemini. */
+/** Lightweight on-device hashed vectors for retrieval while a learned local embedder is pending. */
 class MnemeEmbedder(
     @Suppress("UNUSED_PARAMETER") private val context: Context,
     @Suppress("UNUSED_PARAMETER") private val llm: LlmBridge? = null,

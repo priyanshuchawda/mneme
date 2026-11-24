@@ -16,5 +16,7 @@ dependencyResolutionManagement {
 rootProject.name = "Retenqo"
 include(":app")
 include(":whisper-lib")
+include(":llama-runtime")
 
 project(":whisper-lib").projectDir = file("whisper-lib")
+project(":llama-runtime").projectDir = file("../../tools/llama.cpp/examples/llama.android/lib")

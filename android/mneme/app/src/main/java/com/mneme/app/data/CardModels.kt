@@ -30,3 +30,14 @@ enum class CardStatus(val storage: String, val label: String) {
             entries.firstOrNull { it.storage == value } ?: OPEN
     }
 }
+
+enum class CardReviewState(val storage: String, val label: String) {
+    PENDING("pending", "Needs review"),
+    CONFIRMED("confirmed", "Confirmed"),
+    DISMISSED("dismissed", "Dismissed");
+
+    companion object {
+        fun fromStorage(value: String?): CardReviewState =
+            entries.firstOrNull { it.storage == value } ?: CONFIRMED
+    }
+}

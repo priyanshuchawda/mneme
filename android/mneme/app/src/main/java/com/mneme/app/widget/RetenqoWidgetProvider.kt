@@ -7,13 +7,19 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import com.mneme.app.data.MnemeDatabase
 import com.mneme.app.MainActivity
 import com.mneme.app.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-/** Compact, deterministic at-a-glance surface for the video/demo build. */
+/** Privacy-preserving summary of confirmed follow-ups, refreshed on app resume/widget update. */
 class RetenqoWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        ids.forEach { update(context, manager, it) }
+        updateAll(context)
     }
 
     override fun onEnabled(context: Context) {
@@ -21,41 +27,45 @@ class RetenqoWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
+        private val refreshScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
         fun updateAll(context: Context) {
-            val manager = AppWidgetManager.getInstance(context)
-            val component = ComponentName(context, RetenqoWidgetProvider::class.java)
-            manager.getAppWidgetIds(component).forEach { update(context, manager, it) }
+            val app = context.applicationContext
+            val manager = AppWidgetManager.getInstance(app)
+            val component = ComponentName(app, RetenqoWidgetProvider::class.java)
+            val ids = manager.getAppWidgetIds(component)
+            if (ids.isEmpty()) return
+
+            refreshScope.launch {
+                val activeCount = runCatching {
+                    MnemeDatabase.get(app).notes().activeWidgetCount(System.currentTimeMillis())
+                }.getOrDefault(0)
+                withContext(Dispatchers.Main.immediate) {
+                    val currentManager = AppWidgetManager.getInstance(app)
+                    ids.forEach { id -> update(app, currentManager, id, activeCount) }
+                }
+            }
         }
 
-        internal fun update(context: Context, manager: AppWidgetManager, id: Int) {
+        internal fun update(context: Context, manager: AppWidgetManager, id: Int, activeCount: Int) {
             val views = RemoteViews(context.packageName, R.layout.widget_retenqo)
-            val page = context.getSharedPreferences(RetenqoWidgetReceiver.PREFS, Context.MODE_PRIVATE)
-                .getInt(RetenqoWidgetReceiver.KEY_PAGE, 0)
-            val cards = listOf(
-                listOf("Nexus · Fix export issue before Friday.", "Build Thursday · client tests Friday.", "3 PM review · prepare graphs."),
-                listOf("ISRO · preprocessing + thresholds done.", "Tomorrow 4 PM · test-data review.", "Bring graphs + architecture diagram."),
-                listOf("Fort · plan set for 4 PM.", "Metro route shared · pickup arranged.", "Assistant found a schedule clash."),
-                listOf("Assistant · 4 PM conflict detected.", "ISRO review overlaps Fort plan.", "Suggestion: move Fort to 6 PM."),
-            )[page % 4]
-            views.setTextViewText(R.id.widget_summary_1, cards[0])
-            views.setTextViewText(R.id.widget_summary_2, cards[1])
-            views.setTextViewText(R.id.widget_summary_3, cards[2])
+            val summary = if (activeCount == 0) {
+                context.getString(R.string.widget_no_followups)
+            } else {
+                context.resources.getQuantityString(R.plurals.widget_followups_count, activeCount, activeCount)
+            }
+            views.setTextViewText(R.id.widget_summary_1, summary)
+            views.setTextViewText(R.id.widget_summary_2, context.getString(R.string.widget_open_tasks))
+            views.setTextViewText(R.id.widget_summary_3, context.getString(R.string.widget_privacy_hint))
             val openBrief = PendingIntent.getActivity(
                     context,
                     id,
-                    Intent(context, MainActivity::class.java).apply {
-                        putExtra("pitch", "chat")
-                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    },
+                    Intent(context, MainActivity::class.java).addFlags(
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                    ),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
             views.setOnClickPendingIntent(R.id.widget_root, openBrief)
-            val next = PendingIntent.getBroadcast(
-                context, id,
-                Intent(context, RetenqoWidgetReceiver::class.java).setAction(RetenqoWidgetReceiver.ACTION_NEXT),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-            views.setOnClickPendingIntent(R.id.widget_arrow, next)
             manager.updateAppWidget(id, views)
         }
     }

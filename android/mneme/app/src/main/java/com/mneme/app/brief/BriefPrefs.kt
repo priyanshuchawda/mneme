@@ -1,6 +1,7 @@
 package com.mneme.app.brief
 
 import android.content.Context
+import androidx.core.content.edit
 
 /** Persists last app-open time for since-last-open brief. */
 object BriefPrefs {
@@ -12,9 +13,8 @@ object BriefPrefs {
             .getLong(KEY_LAST_OPEN, 0L)
 
     fun markOpened(context: Context, at: Long = System.currentTimeMillis()) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putLong(KEY_LAST_OPEN, at)
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putLong(KEY_LAST_OPEN, at)
+        }
     }
 }

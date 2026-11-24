@@ -1,6 +1,8 @@
 package com.mneme.app.media
 
 import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
@@ -17,6 +19,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -28,8 +31,8 @@ data class MediaScanResult(
 )
 
 /**
- * Ingest WhatsApp Images/Documents from on-disk Media folders.
- * Ladder: image/PDF → ML Kit OCR → [PulsePipeline.ingestText] (Qwen extract + embed).
+ * Ingest user-selected files or recent WhatsApp photos from scoped MediaStore access.
+ * Ladder: image/PDF → ML Kit OCR → [PulsePipeline.ingestText] (local extraction + embed).
  * VLM fallback is deferred (OCR-first is enough for digital PDFs / clear photos).
  */
 class MediaIngestPipeline(
@@ -43,32 +46,30 @@ class MediaIngestPipeline(
 
     suspend fun scanWhatsAppRecent(limit: Int = 8): MediaScanResult = mutex.withLock {
         withContext(Dispatchers.IO) {
-            val candidates = WhatsAppMediaPaths.listRecentCandidates(limit = limit)
+            val candidates = WhatsAppMediaPaths.listRecentCandidates(context, limit = limit)
             if (candidates.isEmpty()) {
                 return@withContext MediaScanResult(
                     0, 0, 0,
-                    "No recent WhatsApp media (download/open a photo or PDF in WA first)",
+                    "No recent WhatsApp photos found in shared media",
                 )
             }
             var saved = 0
             var skipped = 0
-            val notes = mutableListOf<String>()
-            for (file in candidates) {
-                val key = "done:${file.absolutePath}:${file.lastModified()}:${file.length()}"
+            for (candidate in candidates) {
+                val key = "done:${candidate.uri}:${candidate.modifiedAtSeconds}:${candidate.sizeBytes}"
                 if (prefs.getBoolean(key, false)) {
                     skipped++
                     continue
                 }
                 val result = try {
-                    ingestFile(file)
+                    ingestSelected(candidate.uri, sourceLabel = "WhatsApp photo · ${candidate.displayName}")
                 } catch (e: Exception) {
-                    Log.w(TAG, "ingest failed ${file.name}: ${e.message}")
-                    PulseResult(null, "Fail ${file.name}: ${e.message}", false)
+                    Log.w(TAG, "ingest failed for a WhatsApp photo: ${e.message}")
+                    PulseResult(null, "Could not read a WhatsApp photo: ${e.message}", false)
                 }
                 if (result.noteId != null) {
                     saved++
                     prefs.edit().putBoolean(key, true).apply()
-                    notes.add(result.preview)
                 } else {
                     skipped++
                     // Remember weak/unimportant so we don't loop forever
@@ -81,15 +82,14 @@ class MediaIngestPipeline(
                 }
             }
             val msg = when {
-                saved > 0 -> "WA media: saved $saved · skipped $skipped"
-                else -> "WA media: nothing new ($skipped checked)"
+                saved > 0 -> "WhatsApp photos: saved $saved · skipped $skipped"
+                else -> "WhatsApp photos: nothing new ($skipped checked)"
             }
             MediaScanResult(candidates.size, saved, skipped, msg)
         }
     }
 
-    suspend fun ingestFile(file: File): PulseResult {
-        val label = IngestSources.waMedia(file.name)
+    suspend fun ingestFile(file: File, sourceLabel: String = IngestSources.waMedia(file.name)): PulseResult {
         val ext = file.extension.lowercase()
         val text = when (ext) {
             "pdf" -> ocrPdf(file)
@@ -102,7 +102,65 @@ class MediaIngestPipeline(
         if (PulsePipelineHints.shouldSkipIngest(text)) {
             return PulseResult(null, "Skipped junk OCR: ${file.name}", false)
         }
-        return pulse.ingestText(text, sourceLabel = label)
+        return pulse.ingestText(text, sourceLabel = sourceLabel)
+    }
+
+    /** Ingest only files the user selected through Android's document picker. */
+    suspend fun ingestSelected(uri: Uri, sourceLabel: String = "Selected file"): PulseResult = withContext(Dispatchers.IO) {
+        val metadata = queryMetadata(uri)
+        val safeName = metadata.first
+        val mime = metadata.second.orEmpty()
+        val extension = safeName.substringAfterLast('.', "").lowercase()
+        val resolvedExtension = when {
+            extension in SUPPORTED_EXTENSIONS -> extension
+            mime == "application/pdf" -> "pdf"
+            mime.startsWith("image/") -> mime.substringAfter('/').lowercase()
+            else -> extension
+        }
+        if (resolvedExtension !in SUPPORTED_EXTENSIONS) {
+            return@withContext PulseResult(null, "Unsupported selected file: $safeName", false)
+        }
+
+        val temp = File.createTempFile("selected-media-", ".$resolvedExtension", context.cacheDir)
+        try {
+            val input = context.contentResolver.openInputStream(uri)
+                ?: return@withContext PulseResult(null, "Could not open selected file: $safeName", false)
+            input.use { source ->
+                FileOutputStream(temp).use { destination ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    var total = 0L
+                    while (true) {
+                        val count = source.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= MAX_SELECTED_FILE_BYTES) { "Selected file exceeds the 40 MB limit" }
+                        destination.write(buffer, 0, count)
+                    }
+                }
+            }
+            ingestFile(temp, sourceLabel = "$sourceLabel · $safeName").let { result ->
+                if (result.noteId == null && result.preview.startsWith("Skipped")) {
+                    result.copy(preview = "${result.preview} · $safeName")
+                } else result
+            }
+        } catch (e: Exception) {
+            PulseResult(null, "Could not import $safeName: ${e.message ?: "read or OCR failed"}", false)
+        } finally {
+            temp.delete()
+        }
+    }
+
+    private fun queryMetadata(uri: Uri): Pair<String, String?> {
+        var name = uri.lastPathSegment?.substringAfterLast('/') ?: "selected-file"
+        var mime = context.contentResolver.getType(uri)
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (index >= 0) name = cursor.getString(index) ?: name
+                }
+            }
+        return name.take(180) to mime
     }
 
     private suspend fun ocrImage(file: File): String = withContext(Dispatchers.IO) {
@@ -139,5 +197,7 @@ class MediaIngestPipeline(
 
     companion object {
         private const val TAG = "MediaIngest"
+        private const val MAX_SELECTED_FILE_BYTES = 40L * 1024 * 1024
+        private val SUPPORTED_EXTENSIONS = setOf("pdf", "jpg", "jpeg", "png", "webp", "heic")
     }
 }

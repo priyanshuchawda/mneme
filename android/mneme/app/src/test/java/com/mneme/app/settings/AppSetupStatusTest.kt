@@ -13,7 +13,6 @@ class AppSetupStatusTest {
             mediaImages = true,
             microphone = false,
             exactAlarms = true,
-            allFilesAccess = false,
         )
         assertTrue(missing.missingCritical)
         assertFalse(missing.readyForDailyUse)
@@ -24,16 +23,34 @@ class AppSetupStatusTest {
     }
 
     @Test
-    fun mediaViaAllFilesCounts() {
+    fun mediaAccessRequiresPhotoPermission() {
         val s = AppSetupStatus(
             postNotifications = true,
             notifListener = true,
             mediaImages = false,
             microphone = false,
             exactAlarms = false,
-            allFilesAccess = true,
+        )
+        assertFalse(s.canReadMedia)
+        assertFalse(s.readyForDailyUse)
+    }
+
+    @Test
+    fun grantedPhotoAccessAllowsMediaWorkflows() {
+        val s = AppSetupStatus(
+            postNotifications = true,
+            notifListener = true,
+            mediaImages = true,
+            microphone = false,
+            exactAlarms = true,
         )
         assertTrue(s.canReadMedia)
         assertTrue(s.readyForDailyUse)
+    }
+
+    @Test
+    fun androidSelectedPhotosGrantCountsAsMediaAccess() {
+        assertTrue(AppSetup.hasPhotoLibraryAccess(fullAccess = false, selectedPhotosAccess = true))
+        assertFalse(AppSetup.hasPhotoLibraryAccess(fullAccess = false, selectedPhotosAccess = false))
     }
 }

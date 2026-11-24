@@ -1,6 +1,7 @@
 package com.mneme.app.notif
 
 import android.content.Context
+import androidx.core.content.edit
 
 /**
  * Tiny durable queue for notification texts (no Room schema churn).
@@ -12,23 +13,24 @@ object NotifIngestQueue {
     private const val MAX = 12
 
     @Synchronized
-    fun offer(context: Context, source: String, text: String) {
+    fun offer(context: Context, source: String, text: String, sourceEventId: String? = null) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val next = NotifQueueLogic.offer(
             prefs.getString(KEY, "[]") ?: "[]",
             source,
             text,
             MAX,
+            sourceEventId,
         )
-        prefs.edit().putString(KEY, next).apply()
+        prefs.edit { putString(KEY, next) }
     }
 
     @Synchronized
-    fun drain(context: Context, limit: Int): List<Pair<String, String>> {
+    fun drain(context: Context, limit: Int): List<NotifQueueLogic.Entry> {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val (batch, rest) = NotifQueueLogic.drain(prefs.getString(KEY, "[]") ?: "[]", limit)
-        prefs.edit().putString(KEY, rest).apply()
-        return batch.map { NotifQueueLogic.decode(it) }
+        prefs.edit { putString(KEY, rest) }
+        return batch.map { NotifQueueLogic.decodeEntry(it) }
     }
 
     @Synchronized

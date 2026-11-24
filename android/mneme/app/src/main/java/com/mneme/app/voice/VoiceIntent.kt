@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.provider.AlarmClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -123,7 +122,7 @@ class AlarmScheduler(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val am = context.getSystemService(AlarmManager::class.java)
-        if (Build.VERSION.SDK_INT >= 31 && !am.canScheduleExactAlarms()) {
+        if (!am.canScheduleExactAlarms()) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
         } else {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import androidx.core.graphics.createBitmap
 import java.io.File
 
 /** Render PDF pages to bitmaps for ML Kit OCR (digital PDFs don't need a VLM). */
@@ -19,7 +20,7 @@ object PdfPageRenderer {
                 renderer.openPage(i).use { page ->
                     val w = page.width * scale
                     val h = page.height * scale
-                    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                    val bmp = createBitmap(w, h, Bitmap.Config.ARGB_8888)
                     page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                     out.add(bmp)
                 }

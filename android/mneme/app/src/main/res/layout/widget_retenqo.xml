@@ -14,21 +14,10 @@
             android:id="@+id/widget_summary_1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="48dp"
-            android:text="Project Nexus: export fix before Friday; revised build Thursday."
+            android:layout_marginEnd="0dp"
+            android:text="@string/widget_title"
             android:textColor="#EAF2EF"
             android:textSize="15sp"
-            android:textStyle="bold" />
-        <TextView
-            android:id="@+id/widget_arrow"
-            android:layout_width="34dp"
-            android:layout_height="30dp"
-            android:layout_gravity="end|top"
-            android:background="@drawable/widget_arrow_background"
-            android:gravity="center"
-            android:text="›"
-            android:textColor="#10231D"
-            android:textSize="23sp"
             android:textStyle="bold" />
     </FrameLayout>
 
@@ -37,7 +26,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Tomorrow 3 PM: review the build and prepare graphs."
+        android:text="@string/widget_open_tasks"
         android:textColor="#EAF2EF"
         android:textSize="15sp" />
 
@@ -46,7 +35,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="After testing: send the revised proposal to the client."
+        android:text="@string/widget_privacy_hint"
         android:textColor="#EAF2EF"
         android:textSize="15sp" />
 

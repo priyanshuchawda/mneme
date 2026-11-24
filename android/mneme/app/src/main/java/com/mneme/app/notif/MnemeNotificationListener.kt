@@ -32,6 +32,7 @@ class MnemeNotificationListener : NotificationListenerService() {
 
     private fun ingest(sbn: StatusBarNotification?) {
         if (sbn == null || sbn.isOngoing) return
+        if (!NotificationCaptureSettings.isPackageEnabled(applicationContext, sbn.packageName)) return
         if (!NotifTextTriage.isAllowed(sbn.packageName)) return
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
@@ -43,8 +44,9 @@ class MnemeNotificationListener : NotificationListenerService() {
 
         val candidate = NotifTextTriage.candidate(sbn.packageName, title, text) ?: return
         val source = IngestSources.fromNotifLabel(candidate.sourceLabel)
-        Log.i(TAG, "queue [$source]: ${candidate.text.take(80)}")
-        NotifIngestQueue.offer(applicationContext, source, candidate.text)
+        Log.i(TAG, "queue [$source] (${candidate.text.length} chars)")
+        val eventId = IngestSources.notificationEventFingerprint(sbn.packageName, sbn.key)
+        NotifIngestQueue.offer(applicationContext, source, candidate.text, eventId)
         NotifIngestWorker.enqueueSoon(applicationContext)
     }
 

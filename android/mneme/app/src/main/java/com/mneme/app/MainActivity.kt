@@ -2,21 +2,28 @@ package com.mneme.app
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
+import android.text.InputType
+import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.mneme.app.ai.LlmBridge
+import com.mneme.app.ai.LocalModelManager
 import com.mneme.app.ai.MemoryAsk
 import com.mneme.app.ai.MnemeEmbedder
 import com.mneme.app.data.MnemeDatabase
@@ -38,7 +45,10 @@ class MainActivity : ComponentActivity() {
 
     private val llm by lazy { LlmBridge(this) }
     private val embedder by lazy { MnemeEmbedder(this, llm) }
-    private val notes by lazy { NoteRepository(MnemeDatabase.get(this).notes(), embedder) }
+    private val notes by lazy {
+        val db = MnemeDatabase.get(this)
+        NoteRepository(db.notes(), embedder, db.followThrough())
+    }
     private val whisper by lazy { WhisperBridge(this) }
     private val tts by lazy { TtsSpeaker(this) }
     private val alarms by lazy { AlarmScheduler(this) }
@@ -77,9 +87,9 @@ class MainActivity : ComponentActivity() {
         }
 
     private val mediaPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             viewModel.refreshSetup()
-            if (!granted) {
+            if (grants.values.none { it }) {
                 Toast.makeText(
                     this,
                     "Photos permission helps Scan WhatsApp media",
@@ -87,6 +97,42 @@ class MainActivity : ComponentActivity() {
                 ).show()
             }
         }
+
+    private val modelImportLauncher = registerForActivityResult(OpenDocument()) { uri ->
+        if (uri == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            try {
+                llm.unload()
+                val imported = LocalModelManager(this@MainActivity).import(uri)
+                viewModel.refreshModelStatus()
+                val sizeMb = imported.sizeBytes / (1024L * 1024L)
+                Toast.makeText(
+                    this@MainActivity,
+                    "Imported ${imported.displayName} · ${sizeMb} MB · SHA-256 ${imported.sha256.take(12)}…",
+                    Toast.LENGTH_LONG,
+                ).show()
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Model import failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private val backupExportLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/vnd.retenqo.backup")) { uri ->
+        val password = viewModel.takePendingBackupExportPassword()
+        if (uri != null && password != null) {
+            viewModel.exportBackup(uri, password)
+        } else {
+            password?.fill('\u0000')
+        }
+    }
+
+    private val backupImportLauncher = registerForActivityResult(OpenDocument()) { uri ->
+        if (uri != null) promptBackupRestorePassword(uri)
+    }
+
+    private val mediaImportLauncher = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) viewModel.ingestSelectedMedia(uris)
+    }
 
     private val projectionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -145,16 +191,43 @@ class MainActivity : ComponentActivity() {
                     onRequestPostNotifications = ::requestPostNotifications,
                     onRequestMedia = ::requestMediaPermission,
                     onRequestMicPermission = ::requestMicPermissionOnly,
+                    onImportLocalModel = { modelImportLauncher.launch(arrayOf("*/*")) },
+                    onExportBackup = ::promptBackupExportPassword,
+                    onRestoreBackup = { backupImportLauncher.launch(arrayOf("application/vnd.retenqo.backup", "application/json", "text/json", "application/octet-stream")) },
+                    onImportMedia = { mediaImportLauncher.launch(arrayOf("image/*", "application/pdf")) },
                 )
             }
         }
         applyPitchFromIntent(intent)
+        consumeShareIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         applyPitchFromIntent(intent)
+        consumeShareIntent(intent)
+    }
+
+    private fun consumeShareIntent(intent: Intent?) {
+        if (intent == null) return
+        val action = intent.action
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_SEND_MULTIPLE) return
+
+        val uris = linkedSetOf<android.net.Uri>()
+        intent.clipData?.let { clip ->
+            for (index in 0 until clip.itemCount) clip.getItemAt(index).uri?.let(uris::add)
+        }
+        if (action == Intent.ACTION_SEND_MULTIPLE) {
+            intent.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM)?.forEach(uris::add)
+        } else {
+            intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)?.let(uris::add)
+        }
+        if (uris.isNotEmpty()) viewModel.ingestSelectedMedia(uris.toList())
+        val sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        if (sharedText != null && uris.isEmpty()) viewModel.ingestSharedText(sharedText)
+        // Prevent this payload from being consumed again after activity recreation.
+        intent.action = null
     }
 
     private fun applyPitchFromIntent(intent: Intent?) {
@@ -166,14 +239,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshSetup()
+        viewModel.refreshModelStatus()
         RetenqoWidgetProvider.updateAll(this)
     }
 
     private fun requestPostNotifications() {
-        if (Build.VERSION.SDK_INT < 33) {
-            viewModel.refreshSetup()
-            return
-        }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
             == PackageManager.PERMISSION_GRANTED
         ) {
@@ -183,17 +253,100 @@ class MainActivity : ComponentActivity() {
         notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    private fun requestMediaPermission() {
-        val perm = if (Build.VERSION.SDK_INT >= 33) {
-            Manifest.permission.READ_MEDIA_IMAGES
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
+    private fun promptBackupExportPassword() {
+        val password = newPasswordField("Backup password · at least 12 characters")
+        val confirmation = newPasswordField("Confirm password")
+        val content = passwordDialogContent(password, confirmation)
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Encrypt backup")
+            .setMessage("Retenqo will not save this password. You will need it to restore the backup.")
+            .setView(content)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Choose location", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val first = password.text.toString()
+                val second = confirmation.text.toString()
+                if (first.length < 12 || first != second) {
+                    Toast.makeText(
+                        this,
+                        if (first.length < 12) "Use at least 12 characters" else "Passwords do not match",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    return@setOnClickListener
+                }
+                viewModel.setPendingBackupExportPassword(first.toCharArray())
+                dialog.dismiss()
+                backupExportLauncher.launch("Retenqo-backup-${System.currentTimeMillis()}.retenqo")
+            }
         }
-        if (ContextCompat.checkSelfPermission(this, perm) == PackageManager.PERMISSION_GRANTED) {
+        dialog.setOnDismissListener {
+            password.text?.clear()
+            confirmation.text?.clear()
+        }
+        dialog.show()
+    }
+
+    private fun promptBackupRestorePassword(uri: Uri) {
+        val password = newPasswordField("Backup password (leave blank for older JSON backups)")
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Restore backup")
+            .setMessage("Enter the password used when this backup was exported. Retenqo does not store it.")
+            .setView(passwordDialogContent(password))
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Restore", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val secret = password.text.toString().toCharArray()
+                password.text?.clear()
+                dialog.dismiss()
+                viewModel.restoreBackup(uri, secret)
+            }
+        }
+        dialog.setOnDismissListener { password.text?.clear() }
+        dialog.show()
+    }
+
+    private fun newPasswordField(hintText: String): EditText = EditText(this).apply {
+        hint = hintText
+        contentDescription = hintText
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        maxLines = 1
+    }
+
+    private fun passwordDialogContent(vararg fields: EditText): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        val margin = (20 * resources.displayMetrics.density).toInt()
+        setPadding(margin, 0, margin, 0)
+        fields.forEachIndexed { index, field ->
+            addView(
+                field,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    if (index > 0) topMargin = (8 * resources.displayMetrics.density).toInt()
+                },
+            )
+        }
+    }
+
+    private fun requestMediaPermission() {
+        val permissions = if (android.os.Build.VERSION.SDK_INT >= 34) {
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            )
+        } else {
+            arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+        }
+        if (permissions.any {
+                ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+            }
+        ) {
             viewModel.refreshSetup()
             return
         }
-        mediaPermissionLauncher.launch(perm)
+        mediaPermissionLauncher.launch(permissions)
     }
 
     private fun requestMicPermissionOnly() {

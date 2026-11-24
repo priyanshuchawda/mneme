@@ -38,6 +38,10 @@ object IngestSources {
         return sha256(norm)
     }
 
+    /** Hash a platform event key so cards can be deduped without retaining the raw notification key. */
+    fun notificationEventFingerprint(packageName: String, eventKey: String): String =
+        sha256("notification\n${packageName.trim()}\n${eventKey.trim()}")
+
     private fun sha256(text: String): String {
         val digest = java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }

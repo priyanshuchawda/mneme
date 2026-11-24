@@ -6,19 +6,28 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import android.provider.CalendarContract
 import androidx.lifecycle.viewModelScope
 import com.mneme.app.ai.AskResult
 import com.mneme.app.ai.LlmBridge
+import com.mneme.app.ai.LocalModelManager
 import com.mneme.app.ai.MemoryAsk
+import com.mneme.app.accessibility.RetenqoAccessibilityService
 import com.mneme.app.brief.BriefPrefs
 import com.mneme.app.brief.CatchUpBriefBuilder
 import com.mneme.app.data.IngestSources
+import com.mneme.app.data.CardType
+import com.mneme.app.data.CommitmentHistoryEvent
+import com.mneme.app.data.MnemeBackupManager
 import com.mneme.app.data.NoteEntity
 import com.mneme.app.data.NoteRepository
+import com.mneme.app.data.FollowThroughSuggestion
 import com.mneme.app.media.MediaIngestPipeline
+import com.mneme.app.media.MediaIngestSettings
 import com.mneme.app.media.MnemePowerGates
 import com.mneme.app.notif.MnemeNotificationListener
+import com.mneme.app.notif.NotificationCaptureSettings
 import com.mneme.app.pulse.PulsePipeline
 import com.mneme.app.pulse.PulseResult
 import com.mneme.app.remind.DueReminderScheduler
@@ -31,18 +40,26 @@ import com.mneme.app.voice.VoiceIntent
 import com.mneme.app.voice.VoiceIntentRouter
 import com.mneme.app.voice.WhisperBridge
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flowOf
 
-enum class MnemeTab { Memory, Ask, Settings }
+enum class MnemeTab { Memory, Tasks, Ask, Settings }
 
 data class MnemeUiState(
     val tab: MnemeTab = MnemeTab.Memory,
     val status: String = "Ready",
+    val localModelReady: Boolean = false,
+    val modelDownloading: Boolean = false,
+    val modelDownloadProgress: Int = 0,
+    val modelDownloadStatus: String = "",
+    val backgroundMediaScan: Boolean = false,
+    val notificationSources: Map<String, Boolean> = emptyMap(),
     val pulsing: Boolean = false,
     val mediaBusy: Boolean = false,
     val searchQuery: String = "",
@@ -51,6 +68,10 @@ data class MnemeUiState(
     val askBusy: Boolean = false,
     val askAnswer: String? = null,
     val askCitations: List<NoteEntity> = emptyList(),
+    val useScreenContext: Boolean = false,
+    val screenContextSource: String? = null,
+    val taskHistoryNoteId: Long? = null,
+    val taskHistory: List<CommitmentHistoryEvent> = emptyList(),
     val listening: Boolean = false,
     val notifAccess: Boolean = false,
     val setup: AppSetupStatus = AppSetupStatus(
@@ -59,7 +80,6 @@ data class MnemeUiState(
         mediaImages = false,
         microphone = false,
         exactAlarms = false,
-        allFilesAccess = false,
     ),
     val showSetupBanner: Boolean = false,
     /** Non-LLM catch-up panel (since last open). */
@@ -82,7 +102,10 @@ class MnemeViewModel(
     private val tts: TtsSpeaker,
     private val alarms: AlarmScheduler,
 ) : AndroidViewModel(app) {
+    private var pendingBackupExportPassword: CharArray? = null
     val timeline = notes.observeNotes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val followThroughSuggestions = (notes.observeFollowThroughSuggestions() ?: flowOf(emptyList()))
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _ui = MutableStateFlow(MnemeUiState())
@@ -90,10 +113,16 @@ class MnemeViewModel(
 
     private val mic = MicRecorder()
     private var pumpJob: Job? = null
+    private var modelDownloadJob: Job? = null
 
     init {
         refreshSetup(openSettingsIfNeeded = true)
+        refreshModelStatus()
         refreshBrief(autoShow = true)
+    }
+
+    fun refreshModelStatus() {
+        _ui.value = _ui.value.copy(localModelReady = llm.isAvailable)
     }
 
     fun refreshSetup(openSettingsIfNeeded: Boolean = false) {
@@ -102,11 +131,16 @@ class MnemeViewModel(
         }
         val app = getApplication<Application>()
         val setup = AppSetup.snapshot(app)
+        val backgroundMediaScan = MediaIngestSettings.isPeriodicEnabled(app)
         val unseen = !AppSetup.hasSeenSetup(app)
         val openSetup = openSettingsIfNeeded && unseen && setup.missingCritical
         _ui.value = _ui.value.copy(
             notifAccess = setup.notifListener,
             setup = setup,
+            backgroundMediaScan = backgroundMediaScan,
+            notificationSources = NotificationCaptureSettings.sources.associate { source ->
+                source.id to (source.id in NotificationCaptureSettings.enabledSources(app))
+            },
             showSetupBanner = setup.missingCritical || !setup.readyForDailyUse,
             tab = if (openSetup) MnemeTab.Settings else _ui.value.tab,
             status = when {
@@ -118,6 +152,71 @@ class MnemeViewModel(
         if (openSetup) AppSetup.markSetupSeen(app)
     }
 
+    fun setBackgroundMediaScan(enabled: Boolean) {
+        val app = getApplication<Application>()
+        if (enabled && !AppSetup.snapshot(app).canReadMedia) {
+            _ui.value = _ui.value.copy(status = "Allow Photos & media access before enabling background scans")
+            return
+        }
+        MediaIngestSettings.setPeriodicEnabled(app, enabled)
+        (app as? com.mneme.app.MnemeApp)?.refreshMediaIngest()
+        _ui.value = _ui.value.copy(backgroundMediaScan = enabled)
+        _ui.value = _ui.value.copy(
+            status = if (enabled) "Background media scan enabled" else "Background media scan paused",
+        )
+    }
+
+    fun setNotificationSourceEnabled(sourceId: String, enabled: Boolean) {
+        val app = getApplication<Application>()
+        NotificationCaptureSettings.setEnabled(app, sourceId, enabled)
+        _ui.value = _ui.value.copy(
+            notificationSources = NotificationCaptureSettings.sources.associate { source ->
+                source.id to (source.id in NotificationCaptureSettings.enabledSources(app))
+            },
+            status = if (enabled) "${NotificationCaptureSettings.sources.firstOrNull { it.id == sourceId }?.label ?: "App"} capture enabled"
+                else "Notification source paused",
+        )
+    }
+
+    fun downloadRecommendedModel() {
+        if (modelDownloadJob?.isActive == true) return
+        modelDownloadJob = viewModelScope.launch {
+            _ui.value = _ui.value.copy(
+                modelDownloading = true,
+                modelDownloadProgress = 0,
+                modelDownloadStatus = "Connecting to Hugging Face…",
+            )
+            try {
+                val model = LocalModelManager(getApplication()).downloadRecommended { copied, total ->
+                    val percent = if (total > 0L) ((copied * 100) / total).toInt().coerceIn(0, 100) else 0
+                    _ui.value = _ui.value.copy(
+                        modelDownloadProgress = percent,
+                        modelDownloadStatus = "Downloading recommended model · $percent%",
+                    )
+                }
+                refreshModelStatus()
+                _ui.value = _ui.value.copy(
+                    modelDownloading = false,
+                    modelDownloadProgress = 100,
+                    modelDownloadStatus = "${model.displayName} installed · ready for offline use",
+                    status = "Local model installed",
+                )
+            } catch (_: CancellationException) {
+                _ui.value = _ui.value.copy(modelDownloading = false, modelDownloadStatus = "Model download canceled")
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    modelDownloading = false,
+                    modelDownloadStatus = "Model download failed: ${e.message ?: "network or storage error"}",
+                    status = "Model download failed",
+                )
+            }
+        }
+    }
+
+    fun cancelModelDownload() {
+        modelDownloadJob?.cancel()
+    }
+
     /** @deprecated use [refreshSetup] */
     fun refreshNotifAccess() = refreshSetup()
 
@@ -127,10 +226,6 @@ class MnemeViewModel(
 
     fun openExactAlarmSettings() {
         AppSetup.openExactAlarmSettings(getApplication())
-    }
-
-    fun openAllFilesAccess() {
-        AppSetup.openAllFilesAccess(getApplication())
     }
 
     fun openAccessibilitySettings() {
@@ -308,6 +403,32 @@ class MnemeViewModel(
         _ui.value = _ui.value.copy(askQuery = query)
     }
 
+    fun toggleScreenContext() {
+        if (_ui.value.useScreenContext) {
+            _ui.value = _ui.value.copy(useScreenContext = false, screenContextSource = null, status = "Screen context off")
+            return
+        }
+        val snapshot = RetenqoAccessibilityService.currentSnapshot()
+        if (snapshot == null) {
+            if (!RetenqoAccessibilityService.isConnected()) openAccessibilitySettings()
+            _ui.value = _ui.value.copy(
+                useScreenContext = false,
+                screenContextSource = null,
+                status = if (RetenqoAccessibilityService.isConnected()) {
+                    "Open the app you want to ask about, then return here"
+                } else {
+                    "Enable Retenqo screen access, then open the app you want to ask about"
+                },
+            )
+            return
+        }
+        _ui.value = _ui.value.copy(
+            useScreenContext = true,
+            screenContextSource = snapshot.packageName,
+            status = "Screen context ready from ${snapshot.packageName}",
+        )
+    }
+
     fun submitAsk() {
         val q = _ui.value.askQuery.trim()
         if (q.isBlank() || _ui.value.askBusy) return
@@ -343,6 +464,9 @@ class MnemeViewModel(
             } catch (e: Exception) {
                 _ui.value = _ui.value.copy(askBusy = false, status = "Whisper failed: ${e.message}")
                 return@launch
+            } finally {
+                // Release the speech model before a voice query loads the larger chat model.
+                whisper.unload()
             }
             if (text.isBlank()) {
                 _ui.value = _ui.value.copy(askBusy = false, status = "Heard nothing")
@@ -355,7 +479,15 @@ class MnemeViewModel(
 
     private fun handleUtterance(text: String) {
         viewModelScope.launch {
-            _ui.value = _ui.value.copy(askBusy = true, askAnswer = null, askQuery = text)
+            val useScreen = _ui.value.useScreenContext
+            val screenSnapshot = if (useScreen) RetenqoAccessibilityService.currentSnapshot() else null
+            _ui.value = _ui.value.copy(
+                askBusy = true,
+                askAnswer = null,
+                askQuery = text,
+                useScreenContext = false,
+                screenContextSource = null,
+            )
             when (val intent = VoiceIntentRouter.route(text)) {
                 is VoiceIntent.Capabilities -> {
                     val msg = "I can save notes and tasks, set reminders, add calendar events, open Gmail, read supported WhatsApp and app notifications after you enable Notification access, search your saved memory, scan screens, and help with routes and accessibility."
@@ -365,7 +497,7 @@ class MnemeViewModel(
                 is VoiceIntent.CheckEmail -> {
                     val launch = getApplication<Application>().packageManager
                         .getLaunchIntentForPackage("com.google.android.gm")
-                        ?: Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
+                        ?: Intent(Intent.ACTION_SENDTO, "mailto:".toUri())
                     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     getApplication<Application>().startActivity(launch)
                     val msg = "Opening Gmail."
@@ -410,12 +542,12 @@ class MnemeViewModel(
                     val msg = "Opening directions to ${intent.destination}"
                     try {
                         getApplication<Application>().startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${Uri.encode(intent.destination)}"))
+                            Intent(Intent.ACTION_VIEW, "google.navigation:q=${Uri.encode(intent.destination)}".toUri())
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                         )
                     } catch (_: Exception) {
                         getApplication<Application>().startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(intent.destination)}"))
+                            Intent(Intent.ACTION_VIEW, "geo:0,0?q=${Uri.encode(intent.destination)}".toUri())
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                         )
                     }
@@ -478,7 +610,11 @@ class MnemeViewModel(
                 is VoiceIntent.Query -> {
                     _ui.value = _ui.value.copy(status = "Searching memory…")
                     val result: AskResult = try {
-                        asker.ask(intent.text)
+                        if (useScreen && screenSnapshot == null) {
+                            AskResult("The screen snapshot expired. Open the app again and enable screen context.", emptyList())
+                        } else {
+                            asker.ask(intent.text, screenContext = screenSnapshot)
+                        }
                     } catch (e: Exception) {
                         AskResult("Ask failed: ${e.message}", emptyList())
                     }
@@ -486,7 +622,11 @@ class MnemeViewModel(
                         askBusy = false,
                         askAnswer = result.answer,
                         askCitations = result.citations,
-                        status = if (result.citations.isEmpty()) {
+                        status = if (useScreen && screenSnapshot == null) {
+                            "Screen snapshot expired — enable it again"
+                        } else if (screenSnapshot != null) {
+                            "Answered with screen context${screenSnapshot.packageName.let { " from $it" }}"
+                        } else if (result.citations.isEmpty()) {
                             "No matches"
                         } else {
                             "Answered from ${result.citations.size} notes"
@@ -513,6 +653,10 @@ class MnemeViewModel(
     fun scanWhatsAppMedia() {
         if (_ui.value.mediaBusy || _ui.value.pulsing) return
         viewModelScope.launch {
+            if (!AppSetup.snapshot(getApplication()).canReadMedia) {
+                _ui.value = _ui.value.copy(status = "Allow Photos & media access before scanning WhatsApp files")
+                return@launch
+            }
             val gate = MnemePowerGates.canRunHeavyWork(getApplication(), userInitiated = true)
             if (!gate.ok && gate.reason.contains("RAM", ignoreCase = true)) {
                 _ui.value = _ui.value.copy(status = gate.reason)
@@ -529,6 +673,54 @@ class MnemeViewModel(
                 return@launch
             }
             _ui.value = _ui.value.copy(mediaBusy = false, status = result.message)
+        }
+    }
+
+    /** Imports files explicitly selected with Android's photo/document picker. */
+    fun ingestSelectedMedia(uris: List<Uri>) {
+        if (uris.isEmpty() || _ui.value.mediaBusy || _ui.value.pulsing) return
+        val selected = uris.take(MAX_SELECTED_MEDIA_FILES)
+        viewModelScope.launch {
+            val gate = MnemePowerGates.canRunHeavyWork(getApplication(), userInitiated = true)
+            if (!gate.ok && gate.reason.contains("RAM", ignoreCase = true)) {
+                _ui.value = _ui.value.copy(status = gate.reason)
+                return@launch
+            }
+            _ui.value = _ui.value.copy(
+                mediaBusy = true,
+                status = if (selected.size < uris.size) "Importing first $MAX_SELECTED_MEDIA_FILES selected files…"
+                    else "Reading selected files on this phone…",
+            )
+            var saved = 0
+            try {
+                for ((index, uri) in selected.withIndex()) {
+                    _ui.value = _ui.value.copy(status = "Reading selected file ${index + 1} of ${selected.size}…")
+                    val result = media.ingestSelected(uri)
+                    if (result.noteId != null) saved++
+                }
+                val extra = if (selected.size < uris.size) " · first ${selected.size} of ${uris.size}" else ""
+                val summary = "Selected import complete · $saved saved · ${selected.size - saved} skipped$extra"
+                _ui.value = _ui.value.copy(mediaBusy = false, status = summary)
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(
+                    mediaBusy = false,
+                    status = "Selected import stopped: ${e.message ?: "could not read the file"}",
+                )
+            }
+        }
+    }
+
+    fun ingestSharedText(text: String) {
+        val content = text.trim().take(MAX_SHARED_TEXT_CHARS)
+        if (content.length < 8 || _ui.value.mediaBusy || _ui.value.pulsing) return
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(mediaBusy = true, status = "Saving shared text on this phone…")
+            val result = try {
+                pulse.ingestText(content, sourceLabel = "Shared from another app")
+            } catch (e: Exception) {
+                PulseResult(null, "Shared text could not be saved: ${e.message}", false)
+            }
+            _ui.value = _ui.value.copy(mediaBusy = false, status = result.preview)
         }
     }
 
@@ -637,13 +829,123 @@ class MnemeViewModel(
         }
     }
 
+    fun saveTaskEdits(id: Long, title: String, body: String, who: String?, dueAt: Long?, type: CardType) {
+        viewModelScope.launch {
+            try {
+                val note = notes.updateCardFields(id, title, body, who, dueAt, type)
+                if (note == null) {
+                    _ui.value = _ui.value.copy(status = "This task no longer exists")
+                } else {
+                    val app = getApplication<Application>()
+                    if (note.review() == com.mneme.app.data.CardReviewState.CONFIRMED &&
+                        note.status() == com.mneme.app.data.CardStatus.OPEN && note.dueAt != null
+                    ) {
+                        DueReminderScheduler.schedule(app, note.id, note.title, note.dueAt)
+                    } else {
+                        DueReminderScheduler.cancel(app, note.id)
+                    }
+                    _ui.value = _ui.value.copy(status = "Task updated")
+                }
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(status = "Could not update task: ${e.message ?: "check the fields"}")
+            }
+        }
+    }
+
+    fun loadTaskHistory(id: Long) {
+        _ui.value = _ui.value.copy(taskHistoryNoteId = id, taskHistory = emptyList())
+        viewModelScope.launch {
+            val history = notes.history(id)
+            if (_ui.value.taskHistoryNoteId == id) {
+                _ui.value = _ui.value.copy(taskHistory = history)
+            }
+        }
+    }
+
+    fun exportBackup(uri: Uri, password: CharArray) {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(status = "Preparing local backup…")
+            try {
+                MnemeBackupManager(getApplication()).export(uri, password)
+                _ui.value = _ui.value.copy(status = "Retenqo backup saved")
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(status = "Backup failed: ${e.message ?: "could not write file"}")
+            } finally {
+                password.fill('\u0000')
+            }
+        }
+    }
+
+    fun setPendingBackupExportPassword(password: CharArray) {
+        pendingBackupExportPassword?.fill('\u0000')
+        pendingBackupExportPassword = password
+    }
+
+    fun takePendingBackupExportPassword(): CharArray? = pendingBackupExportPassword.also {
+        pendingBackupExportPassword = null
+    }
+
+    fun restoreBackup(uri: Uri, password: CharArray) {
+        viewModelScope.launch {
+            _ui.value = _ui.value.copy(status = "Restoring local backup…")
+            try {
+                val result = MnemeBackupManager(getApplication()).restore(uri, password)
+                _ui.value = _ui.value.copy(
+                    status = "Restored ${result.notesAdded} cards, ${result.historyEventsAdded} history events, ${result.suggestionsAdded} suggestions",
+                )
+            } catch (e: Exception) {
+                _ui.value = _ui.value.copy(status = "Restore failed: ${e.message ?: "backup could not be read"}")
+            } finally {
+                password.fill('\u0000')
+            }
+        }
+    }
+
+    fun acceptCompletionSuggestion(suggestion: FollowThroughSuggestion) {
+        viewModelScope.launch {
+            DueReminderScheduler.cancel(getApplication(), suggestion.commitmentId)
+            notes.acceptCompletionSuggestion(suggestion.id, suggestion.commitmentId)
+            _ui.value = _ui.value.copy(status = "Commitment marked done from confirmed evidence")
+        }
+    }
+
+    fun dismissCompletionSuggestion(id: Long) {
+        viewModelScope.launch {
+            notes.dismissCompletionSuggestion(id)
+            _ui.value = _ui.value.copy(status = "Evidence suggestion dismissed")
+        }
+    }
+
+    fun acceptCapturedCard(id: Long) {
+        viewModelScope.launch {
+            val note = notes.acceptReview(id)
+            if (note?.dueAt != null) {
+                DueReminderScheduler.schedule(getApplication(), note.id, note.title, note.dueAt)
+            }
+            _ui.value = _ui.value.copy(status = if (note == null) "This card was already reviewed" else "Added to your tasks")
+        }
+    }
+
+    fun dismissCapturedCard(id: Long) {
+        viewModelScope.launch {
+            DueReminderScheduler.cancel(getApplication(), id)
+            notes.dismissReview(id)
+            _ui.value = _ui.value.copy(status = "Captured suggestion dismissed")
+        }
+    }
+
     override fun onCleared() {
+        pendingBackupExportPassword?.fill('\u0000')
+        pendingBackupExportPassword = null
         if (_ui.value.listening) stopListening(submit = false)
         tts.shutdown()
         super.onCleared()
     }
 
     companion object {
+        private const val MAX_SHARED_TEXT_CHARS = 20_000
+        private const val MAX_SELECTED_MEDIA_FILES = 8
+
         fun factory(
             app: Application,
             notes: NoteRepository,

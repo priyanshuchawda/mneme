@@ -10,6 +10,7 @@ import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
+import androidx.core.graphics.createBitmap
 import android.os.HandlerThread
 import android.util.DisplayMetrics
 import android.view.WindowManager
@@ -68,7 +69,7 @@ class ScreenCapture(
                     val pixelStride = plane.pixelStride
                     val rowStride = plane.rowStride
                     val rowPadding = rowStride - pixelStride * width
-                    val bitmap = Bitmap.createBitmap(
+                    val bitmap = createBitmap(
                         width + rowPadding / pixelStride,
                         height,
                         Bitmap.Config.ARGB_8888,

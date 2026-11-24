@@ -3,80 +3,61 @@ package com.mneme.app.ai
 import android.content.Context
 import java.io.File
 
-/**
- * Resolves on-device model files. Prefers app-private copies (Android 13+ MediaProvider
- * blocks random /sdcard reads for non-media types like .gguf / .bin).
- */
+/** Resolves models only from Retenqo's app-scoped storage or bundled assets. */
 object ModelPaths {
-    /** Prefer new brand path; keep legacy Mneme path so existing phone models still resolve. */
-    private val SHARED_ROOTS = listOf(
-        "/sdcard/Retenqo/models/phone1",
-        "/sdcard/Mneme/models/phone1",
+    fun llmGguf(context: Context): File = File(modelsDirectory(context), "llm/active.gguf")
+
+    fun ensureLlmAccessible(context: Context): File = llmGguf(context).also { file ->
+        require(file.isFile && file.canRead() && file.length() > MIN_LLM_BYTES) {
+            "Import a supported GGUF model in Settings before starting local generation."
+        }
+    }
+
+    fun whisperBin(context: Context): File = modelFile(context, "whisper/ggml-base-q5_1.bin")
+
+    fun embedGguf(context: Context): File = modelFile(context, "embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf")
+
+    fun ensureWhisperAccessible(context: Context): File = ensureAccessible(
+        context = context,
+        relativePath = "whisper/ggml-base-q5_1.bin",
+        minBytes = MIN_AUX_MODEL_BYTES,
+        assetName = "ggml-base-q5_1.bin",
     )
 
-    fun whisperBin(context: Context): File =
-        resolve(context, "whisper", "ggml-base-q5_1.bin")
-
-    fun embedGguf(context: Context): File =
-        resolve(context, "embed/qwen3", "Qwen3-Embedding-0.6B-Q8_0.gguf")
-
-    fun ensureWhisperAccessible(context: Context): File =
-        ensureAccessible(
-            context,
-            "whisper",
-            "ggml-base-q5_1.bin",
-            minBytes = 1_000_000L,
-            assetName = "ggml-base-q5_1.bin",
-        )
-
-    fun ensureEmbedAccessible(context: Context): File =
-        ensureAccessible(
-            context,
-            "embed/qwen3",
-            "Qwen3-Embedding-0.6B-Q8_0.gguf",
-            minBytes = 1_000_000L,
-        )
-
-    private fun resolve(context: Context, subdir: String, name: String): File {
-        val private = File(context.getExternalFilesDir("models"), "$subdir/$name")
-        if (private.isFile && private.canRead() && private.length() > 1_000_000L) return private
-        for (root in SHARED_ROOTS) {
-            val shared = File("$root/$subdir/$name")
-            if (shared.isFile && shared.canRead()) return shared
-        }
-        return private
-    }
+    fun ensureEmbedAccessible(context: Context): File = ensureAccessible(
+        context = context,
+        relativePath = "embed/qwen3/Qwen3-Embedding-0.6B-Q8_0.gguf",
+        minBytes = MIN_AUX_MODEL_BYTES,
+    )
 
     private fun ensureAccessible(
         context: Context,
-        subdir: String,
-        name: String,
+        relativePath: String,
         minBytes: Long,
         assetName: String? = null,
     ): File {
-        val preferred = resolve(context, subdir, name)
-        if (preferred.isFile && preferred.canRead() && preferred.length() > minBytes) return preferred
+        val destination = modelFile(context, relativePath)
+        if (destination.isFile && destination.canRead() && destination.length() > minBytes) return destination
 
-        val private = File(context.getExternalFilesDir("models"), "$subdir/$name")
-        val shared = SHARED_ROOTS
-            .map { File("$it/$subdir/$name") }
-            .firstOrNull { it.isFile }
-        if (shared == null && assetName != null) {
-            private.parentFile?.mkdirs()
+        if (assetName != null) {
+            destination.parentFile?.mkdirs()
             context.assets.open(assetName).use { input ->
-                private.outputStream().use { output -> input.copyTo(output) }
+                destination.outputStream().use { output -> input.copyTo(output) }
             }
-            require(private.isFile && private.length() > minBytes) {
-                "Failed to stage bundled model at ${private.absolutePath}"
+            require(destination.isFile && destination.length() > minBytes) {
+                "Failed to stage bundled model at ${destination.absolutePath}"
             }
-            return private
+            return destination
         }
-        require(shared != null) {
-            "Model missing. Push to ${SHARED_ROOTS[0]}/$subdir/$name (or legacy Mneme path) or ${private.absolutePath}"
-        }
-        private.parentFile?.mkdirs()
-        shared.copyTo(private, overwrite = true)
-        require(private.isFile && private.canRead()) { "Failed to stage model at ${private.absolutePath}" }
-        return private
+
+        error("Model missing. Import it into Retenqo's app storage: ${destination.absolutePath}")
     }
+
+    private fun modelFile(context: Context, relativePath: String): File = File(modelsDirectory(context), relativePath)
+
+    private fun modelsDirectory(context: Context): File =
+        context.getExternalFilesDir("models") ?: File(context.filesDir, "models")
+
+    private const val MIN_LLM_BYTES = 64L * 1024L * 1024L
+    private const val MIN_AUX_MODEL_BYTES = 1_000_000L
 }

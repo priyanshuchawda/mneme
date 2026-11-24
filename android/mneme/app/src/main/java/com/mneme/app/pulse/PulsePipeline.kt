@@ -29,7 +29,7 @@ data class PulseResult(
 )
 
 /**
- * Pulse: screenshot → OCR → optional Gemini JSON extract → Room note → recycle pixels.
+ * Pulse: screenshot → OCR → rules-first extraction (optional local model) → Room note → recycle pixels.
  */
 class PulsePipeline(
     private val context: Context,
@@ -69,12 +69,18 @@ class PulsePipeline(
     /**
      * Shared path for Pulse + WhatsApp media ingest (no screenshot debounce).
      */
-    suspend fun ingestText(text: String, sourceLabel: String): PulseResult = mutex.withLock {
-        ingestTextLocked(text, sourceLabel)
+    suspend fun ingestText(text: String, sourceLabel: String, sourceEventId: String? = null): PulseResult = mutex.withLock {
+        ingestTextLocked(text, sourceLabel, sourceEventId)
     }
 
-    private suspend fun ingestTextLocked(text: String, sourceLabel: String): PulseResult {
+    private suspend fun ingestTextLocked(text: String, sourceLabel: String, sourceEventId: String? = null): PulseResult {
         val trimmed = text.trim()
+        if (sourceEventId != null && notes.hasSeenSourceEvent(sourceEventId)) {
+            return PulseResult(null, "Notification event already processed", skippedDuplicate = true)
+        }
+        // New phone context can suggest that an existing commitment was completed.
+        // This only creates a review item; the user decides whether to close the task.
+        notes.suggestCompletion(trimmed, sourceLabel, llm)
         if (PulsePipelineHints.shouldSkipIngest(trimmed)) {
             return PulseResult(null, "Skipped junk / UI chrome", skippedDuplicate = false)
         }
@@ -94,6 +100,8 @@ class PulsePipeline(
             return PulseResult(null, "Skipped junk title", skippedDuplicate = false)
         }
 
+        val extractedType = CardType.fromStorage(extracted.cardType)
+        val requiresReview = extractedType in ACTIONABLE_TYPES
         val id = notes.saveIfNew(
             title = extracted.title,
             body = extracted.body,
@@ -101,19 +109,26 @@ class PulsePipeline(
             dueAt = extracted.dueAt,
             embedText = extracted.embedText,
             who = extracted.who,
-            cardType = CardType.fromStorage(extracted.cardType),
+            cardType = extractedType,
             confidence = extracted.confidence,
+            requiresReview = requiresReview,
+            sourceEventId = sourceEventId,
         )
         return if (id == null) {
             PulseResult(null, "Already saved recently", skippedDuplicate = true)
         } else {
-            if (extracted.dueAt != null) {
+            if (extracted.dueAt != null && !requiresReview) {
                 DueReminderScheduler.schedule(context, id, extracted.title, extracted.dueAt)
             }
-            val dueHint = if (extracted.dueAt != null) " · due set" else ""
+            val dueHint = when {
+                extracted.dueAt == null -> ""
+                requiresReview -> " · date detected"
+                else -> " · due set"
+            }
             val kindHint = if (extracted.kind != "other") " · ${extracted.kind}" else ""
             val llmHint = if (extracted.usedLlm) " · llm" else " · rules"
-            PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint$llmHint", skippedDuplicate = false)
+            val reviewHint = if (requiresReview) " · review before task/reminder" else ""
+            PulseResult(id, "Saved: ${extracted.title}$kindHint$dueHint$reviewHint$llmHint", skippedDuplicate = false)
         }
     }
 
@@ -127,6 +142,8 @@ class PulsePipeline(
         }
 
     companion object {
+        private val ACTIONABLE_TYPES = setOf(CardType.DUE, CardType.PROMISE, CardType.WAITING, CardType.ASK_FOR_YOU)
+
         fun shouldSave(text: String): Boolean = PulsePipelineHints.looksImportant(text)
     }
 }

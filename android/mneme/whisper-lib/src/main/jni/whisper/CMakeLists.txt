@@ -14,6 +14,8 @@ endif()
 
 set(SOURCE_FILES
     ${WHISPER_LIB_DIR}/src/whisper.cpp
+    # Supplies no-op definitions for optional platform encoders on Android.
+    ${WHISPER_LIB_DIR}/src/aneforge/whisper-aneforge.cpp
     ${CMAKE_SOURCE_DIR}/jni.c
 )
 

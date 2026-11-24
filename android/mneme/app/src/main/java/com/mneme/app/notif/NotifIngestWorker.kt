@@ -39,17 +39,18 @@ class NotifIngestWorker(
 
         val llm = LlmBridge(applicationContext)
         val embedder = MnemeEmbedder(applicationContext, llm)
-        val notes = NoteRepository(MnemeDatabase.get(applicationContext).notes(), embedder)
+        val db = MnemeDatabase.get(applicationContext)
+        val notes = NoteRepository(db.notes(), embedder, db.followThrough())
         val pulse = PulsePipeline(applicationContext, notes, llm)
         var saved = 0
         var skipped = 0
         var idx = 0
         return try {
             while (idx < batch.size) {
-                val (source, text) = batch[idx]
-                val r = pulse.ingestText(text, sourceLabel = source)
+                val item = batch[idx]
+                val r = pulse.ingestText(item.text, sourceLabel = item.source, sourceEventId = item.sourceEventId)
                 if (r.noteId != null) saved++ else skipped++
-                Log.i(TAG, "[$source] ${r.preview}")
+                Log.i(TAG, "[${item.source}] ${r.preview}")
                 idx++
             }
             val msg = "Notif cards: saved $saved · skipped $skipped"
@@ -61,8 +62,8 @@ class NotifIngestWorker(
         } catch (e: Exception) {
             Log.w(TAG, "error: ${e.message}")
             for (i in idx until batch.size) {
-                val (source, text) = batch[i]
-                NotifIngestQueue.offer(applicationContext, source, text)
+                val item = batch[i]
+                NotifIngestQueue.offer(applicationContext, item.source, item.text, item.sourceEventId)
             }
             Result.retry()
         } finally {
